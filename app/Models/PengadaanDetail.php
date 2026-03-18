@@ -25,4 +25,10 @@ class PengadaanDetail extends Model
     {
         return $this->belongsTo(BahanBaku::class);
     }
+    protected static function booted()
+    {
+        static::creating(function ($detail) {
+            $detail->subtotal = $detail->jumlah * $detail->harga;
+        });
+    }
 }

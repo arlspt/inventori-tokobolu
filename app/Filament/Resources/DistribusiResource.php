@@ -10,6 +10,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 // use Illuminate\Database\Eloquent\Builder;
 // use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -19,12 +20,16 @@ class DistribusiResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationLabel = 'Distribusi';
+    protected static ?string $pluralModelLabel = 'Distribusi';
+
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 Forms\Components\DatePicker::make('tanggal'),
+                Forms\Components\Hidden::make('user_id')
+                    ->default(fn() => Auth::id()),
 
                 Forms\Components\Select::make('reseller_id')
                     ->relationship('reseller', 'nama_reseller')

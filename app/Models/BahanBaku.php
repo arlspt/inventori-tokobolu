@@ -7,11 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 class BahanBaku extends Model
 {
     protected $table = 'bahan_baku';
+    protected $attributes = [
+        'satuan' => 'gram',
+    ];
 
     protected $fillable = [
         'nama_bahan',
+        'stok',
         'satuan',
-        'stok'
     ];
 
     public function pengadaanDetail()

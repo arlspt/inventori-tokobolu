@@ -10,6 +10,10 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Forms\Components\Select;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Components\TextInput;
+
 // use Illuminate\Database\Eloquent\Builder;
 // use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -28,12 +32,19 @@ class BahanBakuResource extends Resource
                 Forms\Components\TextInput::make('nama_bahan')
                     ->required(),
 
-                Forms\Components\TextInput::make('satuan')
-                    ->required(),
-
-                Forms\Components\TextInput::make('stok')
+                TextInput::make('stok_input')
+                    ->label('Stok')
                     ->numeric()
-                    ->default(0),
+                    ->required(),
+                // ->live()
+
+                Select::make('satuan')
+                    // ->options([
+                    //     'kg' => 'Kilogram',
+                    //     'gram' => 'Gram',
+                    // ])
+                    ->default('gram')
+                    ->required(),
             ]);
     }
 
@@ -41,7 +52,15 @@ class BahanBakuResource extends Resource
     {
         return $table
             ->columns([
-                //
+                TextColumn::make('stok')
+                    ->label('Stok')
+                    ->formatStateUsing(function ($state) {
+                        if ($state >= 1000) {
+                            return ($state / 1000) . ' kg';
+                        }
+
+                        return number_format($state / 1000, 2) . ' kg';
+                    })
             ])
             ->filters([
                 //

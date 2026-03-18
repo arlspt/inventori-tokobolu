@@ -10,6 +10,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
 // use Illuminate\Database\Eloquent\Builder;
 // use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -19,6 +20,7 @@ class ReturResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationLabel = 'Retur';
+    protected static ?string $pluralModelLabel = 'Retur';
 
     public static function form(Form $form): Form
     {
@@ -26,6 +28,8 @@ class ReturResource extends Resource
             ->schema([
                 Forms\Components\Select::make('distribusi_id')
                     ->relationship('distribusi', 'id'),
+                Forms\Components\Hidden::make('user_id')
+                    ->default(fn() => Auth::id()),
 
                 Forms\Components\DatePicker::make('tanggal'),
 
