@@ -63,6 +63,7 @@ class PengadaanResource extends Resource
                         Repeater::make('pengadaanDetail')
                             ->relationship()
                             ->columns(4)
+                            // ->itemLabel(fn($state) => 'Bahan')
                             ->deleteAction(
                                 fn($action) => $action
                                     ->label('Hapus')
@@ -78,16 +79,23 @@ class PengadaanResource extends Resource
                                     ->preload()
                                     ->createOptionForm([
                                         TextInput::make('nama_bahan')
+                                            ->label('Nama bahan')
                                             ->required(),
 
                                         TextInput::make('stok')
-                                            ->prefix('Kg')
-                                            ->formatStateUsing(function ($state) {
-                                                return $state >= 1000
-                                                    ? ($state / 1000) . ' kg'
-                                                    : $state . ' 1';
-                                            })
+                                            ->numeric()
+                                            ->default(0)
+                                            ->disabled()
+                                            ->dehydrated()
+                                            ->hidden(),
                                     ])
+                                    ->createOptionAction(function ($action) { //Mengubah button simpan
+                                        return $action
+                                            ->label('Tambah Bahan')
+                                            ->modalHeading('Tambah Bahan Baku')
+                                            ->modalSubmitActionLabel('Simpan')
+                                            ->modalCancelActionLabel('Batal');
+                                    })
                                     ->required(),
 
                                 TextInput::make('harga')
@@ -98,8 +106,15 @@ class PengadaanResource extends Resource
 
                                 TextInput::make('jumlah')
                                     ->label('Jumlah')
+                                    ->postfix('Kg')
                                     ->numeric()
-                                    ->required(),
+                                    ->required()
+                                    ->afterStateHydrated(function ($state, $set) {
+                                        // gram → kg saat tampil
+                                        if ($state) {
+                                            $set('jumlah', $state / 1000);
+                                        }
+                                    }),
 
                                 TextInput::make('subtotal')
                                     // ->numeric()
@@ -107,8 +122,12 @@ class PengadaanResource extends Resource
                                     ->dehydrated(),
                             ])
                             ->addActionLabel('Tambah Pengadaan Detail')
-                            ->collapsible()
-
+                            ->addAction(
+                                fn($action) => $action
+                                    ->label('Pengadaan Detail')
+                                    ->icon('heroicon-m-plus') // menambahkan icon di button
+                            )
+                        // ->collapsible()
                     ]),
             ]);
     }

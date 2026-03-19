@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\PengadaanResource\Pages;
 
 use App\Filament\Resources\PengadaanResource;
-use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
 use Filament\Infolists\Infolist;
 use Filament\Infolists\Components\TextEntry;
@@ -12,6 +11,7 @@ use Filament\Infolists\Components\RepeatableEntry;
 
 class ViewPengadaan extends ViewRecord
 {
+    protected static ?string $title = 'Detail Pengadaan'; // Mengubah judul halaman
     protected static string $resource = PengadaanResource::class;
     public function infolist(Infolist $infolist): Infolist
     {
@@ -20,7 +20,7 @@ class ViewPengadaan extends ViewRecord
 
                 // 🔹 INFORMASI UTAMA
                 Section::make('Informasi Pengadaan')
-                    ->columns(2)
+                    ->columns(3)
                     ->schema([
                         TextEntry::make('tanggal')
                             ->label('Tanggal')
@@ -46,7 +46,12 @@ class ViewPengadaan extends ViewRecord
                                     ->label('Bahan'),
 
                                 TextEntry::make('jumlah')
-                                    ->label('Qty'),
+                                    ->label('Jumlah')
+                                    ->formatStateUsing(function ($state) {
+                                        return $state >= 1000
+                                            ? ($state / 1000) . ' kg'
+                                            : $state . ' gram';
+                                    }),
 
                                 TextEntry::make('harga')
                                     ->label('Harga Satuan')
