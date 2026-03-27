@@ -11,6 +11,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -25,41 +26,91 @@ use Filament\Infolists\Components\TextEntry;
 class ProduksiResource extends Resource
 {
     protected static ?string $model = Produksi::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationLabel = 'Produksi';
     protected static ?string $pluralModelLabel = 'Produksi';
-
-
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                DatePicker::make('tanggal')
-                    ->required(),
 
-                Forms\Components\Hidden::make('user_id')
-                    ->default(fn() => Auth::id()),
-
-                Repeater::make('produksiDetail')
-                    ->relationship()
+                // ===== SECTION DATA =====
+                Section::make('Data Produksi')
+                    ->columns(2)
                     ->schema([
 
-                        Select::make('produk_id')
-                            ->relationship('produk', 'nama_produk')
+                        DatePicker::make('tanggal')
+                            ->label('Tanggal Produksi')
+                            ->default(now())
                             ->required(),
 
-                        TextInput::make('jumlah_produksi')
-                            ->label('Qty')
-                            ->numeric()
-                            ->required(),
+                        Forms\Components\Hidden::make('user_id')
+                            ->default(fn() => Auth::id()),
+                    ]),
 
-                        TextInput::make('gagal')
-                            ->numeric()
-                            ->default(0)
-                            ->label('Gagal')
+                // ===== SECTION DETAIL =====
+                Section::make('Detail Produksi')
+                    ->schema([
 
-                    ])
+                        Repeater::make('produksiDetail')
+                            ->relationship()
+                            ->label('Daftar Produksi')
+                            ->columns(3)
+                            ->schema([
+                                // 🔥 PRODUK + TAMBAH LANGSUNG
+                                Select::make('produk_id')
+                                    ->label('Produk')
+                                    ->relationship('produk', 'nama_produk')
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, $set, $get) {
+                                        // default jumlah = 1
+                                        if (!$get('jumlah_produksi')) {
+                                            $set('jumlah_produksi', 1);
+                                        }
+                                    })
+
+                                    ->createOptionForm([
+                                        TextInput::make('nama_produk')
+                                            ->label('Nama Produk')
+                                            ->required(),
+
+                                        TextInput::make('harga')
+                                            ->label('Harga')
+                                            ->numeric()
+                                            ->prefix('Rp.')
+                                            ->required(),
+                                    ])
+
+                                    ->createOptionAction(function ($action) {
+                                        return $action
+                                            ->label('Tambah Produk')
+                                            ->modalHeading('Tambah Produk Baru')
+                                            ->modalSubmitActionLabel('Simpan')
+                                            ->modalCancelActionLabel('Batal');
+                                    }),
+
+                                // 🔥 JUMLAH
+                                TextInput::make('jumlah_produksi')
+                                    ->label('Jumlah')
+                                    ->numeric()
+                                    ->default(1)
+                                    ->required()
+                                    ->live(),
+
+                                // 🔥 GAGAL
+                                TextInput::make('gagal')
+                                    ->label('Produk Gagal')
+                                    ->numeric()
+                                    ->default(0),
+
+                            ])
+                            ->reorderable(false)
+                            ->collapsible()
+                            ->itemLabel(fn() => 'Produk'),
+                    ]),
             ]);
     }
 
@@ -75,24 +126,30 @@ class ProduksiResource extends Resource
                             ->translatedFormat('l, d F Y');
                     }),
 
-                TextColumn::make('user.name')
+                TextColumn::make('user_id')
                     ->label('Dibuat Oleh')
-                    ->searchable(),
+                    ->getStateUsing(function ($record) {
+                        return $record->user ? $record->user->name : '-';
+                    }),
 
                 TextColumn::make('produksiDetail')
-                    ->formatStateUsing(fn($record) => $record->produksiDetail->count())
-                    ->label('Jumlah Produk'),
+                    ->label('Jumlah Produk')
+                    ->getStateUsing(function ($record) {
 
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->label('Dibuat Pada'),
+                        return $record->produksiDetail->sum(function ($item) {
+                            return ($item->jumlah_produksi ?? 0) - ($item->gagal ?? 0);
+                        });
+                    }),
+                // TextColumn::make('created_at')
+                //     ->dateTime()
+                //     ->label('Dibuat Pada'),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
                 //
             ])
             ->actions([
-                ViewAction::make()
+                ViewAction::make() //action untuk melihat detail produksi
                     ->label('Detail')
                     ->infolist([
 
@@ -102,9 +159,16 @@ class ProduksiResource extends Resource
                                 TextEntry::make('produk.nama_produk')
                                     ->label('Produk'),
                                 TextEntry::make('jumlah_produksi')
-                                    ->label('Qty'),
+                                    ->label('Jumlah'),
                                 TextEntry::make('gagal')
                                     ->label('Produk Gagal'),
+                                // TextEntry::make('tanggal')
+                                //     ->label('Tanggal')
+                                //     ->formatStateUsing(function ($state) {
+                                //         return \Carbon\Carbon::parse($state)
+                                //             ->locale('id')
+                                //             ->translatedFormat('l, d F Y');
+                                //     }),
                             ])
                             ->columns(3),
                     ]),

@@ -11,7 +11,8 @@ class ProduksiDetail extends Model
     protected $fillable = [
         'produksi_id',
         'produk_id',
-        'jumlah_produksi'
+        'jumlah_produksi',
+        'gagal'
     ];
 
     public function produksi()
@@ -23,4 +24,10 @@ class ProduksiDetail extends Model
     {
         return $this->belongsTo(Produk::class);
     }
+    // protected static function booted()
+    // {
+    //     static::saving(function ($detail) {
+    //         $detail->hasil_bersih = $detail->jumlah - $detail->gagal;
+    //     });
+    // }
 }

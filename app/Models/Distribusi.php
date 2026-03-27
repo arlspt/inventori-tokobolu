@@ -11,6 +11,7 @@ class Distribusi extends Model
     protected $fillable = [
         'tanggal',
         'reseller_id',
+        'tujuan_lain',
         'user_id',
         'nomor_invoice',
         'total'
@@ -26,7 +27,7 @@ class Distribusi extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function distribusiDetail()
+    public function detail()
     {
         return $this->hasMany(DistribusiDetail::class);
     }
@@ -34,5 +35,11 @@ class Distribusi extends Model
     public function retur()
     {
         return $this->hasMany(Retur::class);
+    }
+    protected static function booted()
+    {
+        static::saving(function ($distribusi) {
+            $distribusi->total = $distribusi->detail->sum('subtotal');
+        });
     }
 }

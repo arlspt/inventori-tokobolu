@@ -11,11 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('pengadaan', function (Blueprint $table) {
-            $table->foreignId('supplier_id')
-                ->constrained('suppliers')
-                ->cascadeOnDelete();
-        });
+        // Schema::table('pengadaan', function (Blueprint $table) {
+        //     $table->foreignId('supplier_id')
+        //         ->constrained('suppliers')
+        //         ->cascadeOnDelete();
+        // });
     }
 
     public function down(): void
