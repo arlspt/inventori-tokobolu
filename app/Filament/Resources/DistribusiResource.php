@@ -20,6 +20,12 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Actions\ViewAction;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Infolists\Components\Section as InfoSection;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\TextEntry;
+use Carbon\Carbon;
 // use Illuminate\Database\Eloquent\Builder;
 // use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -153,10 +159,23 @@ class DistribusiResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(
+                fn($query) =>
+                $query->with(['detail.produk', 'reseller', 'user'])
+            )
+
+            ->recordUrl(null) // penting
+            ->recordAction('view') // klik row → modal
+
             ->columns([
                 TextColumn::make('tanggal')
-                    ->date('d M Y')
-                    ->sortable(),
+                    ->label('Tanggal')
+                    ->formatStateUsing(
+                        fn($state) =>
+                        Carbon::parse($state)
+                            ->locale('id')
+                            ->translatedFormat('l, d F Y')
+                    ),
 
                 TextColumn::make('tujuan')
                     ->label('Tujuan')
@@ -172,29 +191,105 @@ class DistribusiResource extends Resource
                     ->label('Jumlah Item'),
 
                 TextColumn::make('total')
+                    ->label('Total')
                     ->getStateUsing(
                         fn($record) =>
                         $record->detail->sum('subtotal')
                     )
-                    ->label('Total')
                     ->formatStateUsing(
                         fn($state) =>
-                        'Rp ' . number_format($state, 0, ',', '.') // format mata uang Indonesia
+                        'Rp ' . number_format($state, 0, ',', '.')
                     ),
             ])
-            ->filters([
-                //
-            ])
+
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Detail'),
+                // DROPDOWN MENU
+                ActionGroup::make([
+                    // DETAIL (dipanggil saat klik row & dropdown)
+                    ViewAction::make('view')
+                        ->label('Detail')
+                        ->modalHeading('Detail Distribusi')
+                        ->color('info')
+                        ->infolist([
 
-                Tables\Actions\EditAction::make(),
+                            // SECTION DATA DISTRIBUSI
+                            InfoSection::make('Data Distribusi')
+                                ->schema([
+                                    TextEntry::make('tanggal')
+                                        ->label('Tanggal')
+                                        ->formatStateUsing(
+                                            fn($state) =>
+                                            Carbon::parse($state)
+                                                ->locale('id')
+                                                ->translatedFormat('l, d F Y')
+                                        ),
 
-                Tables\Actions\DeleteAction::make(),
+                                    TextEntry::make('tujuan')
+                                        ->label('Tujuan')
+                                        ->getStateUsing(
+                                            fn($record) =>
+                                            $record->reseller
+                                                ? $record->reseller->nama_reseller
+                                                : $record->tujuan_lain
+                                        ),
+
+                                    TextEntry::make('keterangan')
+                                        ->label('Keterangan')
+                                        ->placeholder('-'),
+                                ])
+                                ->columns(3),
+
+                            // SECTION DETAIL PRODUK
+                            InfoSection::make('Detail Produk')
+                                ->schema([
+                                    RepeatableEntry::make('detail')
+                                        ->schema([
+                                            TextEntry::make('produk.nama_produk')
+                                                ->label('Produk'),
+
+                                            TextEntry::make('jumlah')
+                                                ->label('Jumlah'),
+
+                                            TextEntry::make('harga')
+                                                ->label('Harga')
+                                                ->formatStateUsing(
+                                                    fn($state) =>
+                                                    'Rp ' . number_format($state, 0, ',', '.')
+                                                ),
+
+                                            TextEntry::make('subtotal')
+                                                ->label('Subtotal')
+                                                ->formatStateUsing(
+                                                    fn($state) =>
+                                                    'Rp ' . number_format($state, 0, ',', '.')
+                                                ),
+                                        ])
+                                        ->columns(4),
+                                ]),
+
+                            // SECTION TOTAL
+                            InfoSection::make('Total')
+                                ->schema([
+                                    TextEntry::make('total')
+                                        ->label('Total Keseluruhan')
+                                        ->getStateUsing(
+                                            fn($record) =>
+                                            'Rp ' . number_format(
+                                                $record->detail->sum('subtotal'),
+                                                0,
+                                                ',',
+                                                '.'
+                                            )
+                                        )
+                                        ->weight('bold'),
+                                ]),
+                        ]),
+                    Tables\Actions\EditAction::make()->label('Ubah'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])->color('black'),
             ])
+
             ->actionsColumnLabel('Aksi')
-            ->actionsPosition(\Filament\Tables\Enums\ActionsPosition::AfterColumns)
 
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

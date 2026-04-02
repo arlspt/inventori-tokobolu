@@ -13,7 +13,10 @@ class ListProduksis extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label('Tambah Produksi')
+                ->modalHeading('Tambah Produksi')
+                ->modalWidth('7xl'),
         ];
     }
 }

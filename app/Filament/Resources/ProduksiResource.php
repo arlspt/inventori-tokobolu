@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Auth;
 use Filament\Tables\Actions\ViewAction;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Tables\Actions\ActionGroup;
+use Carbon\Carbon;
 // use Illuminate\Database\Eloquent\Builder;
 // use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -51,10 +53,10 @@ class ProduksiResource extends Resource
                 // ===== SECTION DETAIL =====
                 Section::make('Detail Produksi')
                     ->schema([
-
                         Repeater::make('produksiDetail')
                             ->relationship()
                             ->label('Daftar Produksi')
+                            ->addActionLabel('Tambah Produk') // Ubah label tombol "Add Item" menjadi "Tambah Produk"
                             ->columns(3)
                             ->schema([
                                 // 🔥 PRODUK + TAMBAH LANGSUNG
@@ -108,7 +110,6 @@ class ProduksiResource extends Resource
 
                             ])
                             ->reorderable(false)
-                            ->collapsible()
                             ->itemLabel(fn() => 'Produk'),
                     ]),
             ]);
@@ -117,6 +118,7 @@ class ProduksiResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->recordUrl(null) // menonaktifkan klik pada baris untuk melihat detail
             ->columns([
                 TextColumn::make('tanggal')
                     ->label('Hari, Tanggal')
@@ -149,32 +151,49 @@ class ProduksiResource extends Resource
                 //
             ])
             ->actions([
-                ViewAction::make() //action untuk melihat detail produksi
-                    ->label('Detail')
-                    ->infolist([
-
-                        RepeatableEntry::make('produksiDetail')
-                            ->label('Detail Produksi')
-                            ->schema([
-                                TextEntry::make('produk.nama_produk')
-                                    ->label('Produk'),
-                                TextEntry::make('jumlah_produksi')
-                                    ->label('Jumlah'),
-                                TextEntry::make('gagal')
-                                    ->label('Produk Gagal'),
-                                // TextEntry::make('tanggal')
-                                //     ->label('Tanggal')
-                                //     ->formatStateUsing(function ($state) {
-                                //         return \Carbon\Carbon::parse($state)
-                                //             ->locale('id')
-                                //             ->translatedFormat('l, d F Y');
-                                //     }),
-                            ])
-                            ->columns(3),
-                    ]),
-
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+                // ViewAction::make('view')
+                //     ->modalHeading('Detail Produksi')
+                //     ->label('Detail')
+                //     ->color('info')
+                //     ->hiddenLabel() // atau ->label('')
+                //     ->infolist([
+                //         RepeatableEntry::make('produksiDetail')
+                //             ->label(fn($record) => Carbon::parse($record->tanggal)
+                //                 ->locale('id')
+                //                 ->translatedFormat('l, d F Y'))
+                //             ->schema([
+                //                 TextEntry::make('produk.nama_produk')
+                //                     ->label('Produk'),
+                //                 TextEntry::make('jumlah_produksi')
+                //                     ->label('Jumlah'),
+                //                 TextEntry::make('gagal')
+                //                     ->label('Produk Gagal'),
+                //             ])
+                //             ->columns(3),
+                //     ]),
+                ActionGroup::make([
+                    ViewAction::make('view')
+                        ->modalHeading('Detail Produksi')
+                        ->label('Detail')
+                        ->color('info')
+                        ->infolist([
+                            RepeatableEntry::make('produksiDetail')
+                                ->label(fn($record) => Carbon::parse($record->tanggal)
+                                    ->locale('id')
+                                    ->translatedFormat('l, d F Y'))
+                                ->schema([
+                                    TextEntry::make('produk.nama_produk')
+                                        ->label('Produk'),
+                                    TextEntry::make('jumlah_produksi')
+                                        ->label('Jumlah'),
+                                    TextEntry::make('gagal')
+                                        ->label('Produk Gagal'),
+                                ])
+                                ->columns(3),
+                        ]),
+                    Tables\Actions\EditAction::make()->label('Ubah'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])->color('black'), //ubah warna burger menu aksi
             ])
             ->actionsColumnLabel('Aksi')
             ->bulkActions([

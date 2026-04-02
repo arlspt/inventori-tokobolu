@@ -13,7 +13,10 @@ class ListReturs extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->label('Tambah Retur')
+                ->modalHeading('Tambah Retur')
+                ->modalWidth('7xl'),
         ];
     }
 }

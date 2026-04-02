@@ -7,8 +7,8 @@ use App\Models\Pengadaan;
 use Filament\Forms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -16,9 +16,12 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 use Filament\Tables\Columns\TextColumn;
-// use Filament\Forms\Components\Actions\Action;
-// use Illuminate\Database\Eloquent\Builder;
-// use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Actions\ViewAction;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Infolists\Components\Section as InfoSection;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\TextEntry;
+use Carbon\Carbon;
 
 class PengadaanResource extends Resource
 {
@@ -135,15 +138,20 @@ class PengadaanResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn($query) => $query->with('pengadaanDetail'))
+            ->modifyQueryUsing(fn($query) => $query->with(['pengadaanDetail.bahanBaku', 'supplier', 'user']))
+
+            ->recordUrl(null)
+            ->recordAction('view') // klik row -> modal
+
             ->columns([
                 TextColumn::make('tanggal')
                     ->label('Tanggal')
-                    ->formatStateUsing(function ($state) {
-                        return \Carbon\Carbon::parse($state)
+                    ->formatStateUsing(
+                        fn($state) =>
+                        Carbon::parse($state)
                             ->locale('id')
-                            ->translatedFormat('l, d F Y');
-                    }),
+                            ->translatedFormat('l, d F Y')
+                    ),
 
                 TextColumn::make('supplier.nama_supplier')
                     ->label('Supplier'),
@@ -154,30 +162,98 @@ class PengadaanResource extends Resource
 
                 TextColumn::make('total_harga')
                     ->label('Total')
-                    ->getStateUsing(function ($record) {
-                        return 'Rp. ' . number_format(
-                            $record->pengadaanDetail->sum('subtotal'),
-                            0,
-                            ',',
-                            '.'
-                        );
-                    }),
+                    ->getStateUsing(
+                        fn($record) =>
+                        'Rp. ' . number_format($record->pengadaanDetail->sum('subtotal'), 0, ',', '.')
+                    ),
 
                 TextColumn::make('user.name')
                     ->label('Dibuat Oleh'),
             ])
-            ->filters([
-                //
-            ])
+
             ->actions([
-                Tables\Actions\ViewAction::make(),
 
-                Tables\Actions\EditAction::make(),
+                // DETAIL (dipanggil saat klik row)
 
-                Tables\Actions\DeleteAction::make()->label('Hapus'),
+
+                // DROPDOWN ACTION
+                ActionGroup::make([
+                    ViewAction::make('view')
+                        ->modalHeading('Detail Pengadaan')
+                        ->label('Detail')
+                        ->color('info')
+                        ->infolist([
+                            // SECTION INFORMASI
+                            InfoSection::make('Informasi Pengadaan')
+                                ->schema([
+                                    TextEntry::make('tanggal')
+                                        ->label('Tanggal')
+                                        ->formatStateUsing(
+                                            fn($state) =>
+                                            Carbon::parse($state)
+                                                ->locale('id')
+                                                ->translatedFormat('l, d F Y')
+                                        ),
+
+                                    TextEntry::make('supplier.nama_supplier')
+                                        ->label('Supplier'),
+
+                                    TextEntry::make('user.name')
+                                        ->label('Dibuat Oleh'),
+                                ])
+                                ->columns(3),
+
+                            // SECTION DETAIL BAHAN
+                            InfoSection::make('Detail Bahan')
+                                ->schema([
+                                    RepeatableEntry::make('pengadaanDetail')
+                                        ->schema([
+                                            TextEntry::make('bahanBaku.nama_bahan')
+                                                ->label('Bahan'),
+
+                                            TextEntry::make('jumlah')
+                                                ->label('Jumlah (gram)'),
+
+                                            TextEntry::make('harga')
+                                                ->label('Harga')
+                                                ->formatStateUsing(
+                                                    fn($state) =>
+                                                    'Rp. ' . number_format($state, 0, ',', '.')
+                                                ),
+
+                                            TextEntry::make('subtotal')
+                                                ->label('Subtotal')
+                                                ->formatStateUsing(
+                                                    fn($state) =>
+                                                    'Rp. ' . number_format($state, 0, ',', '.')
+                                                ),
+                                        ])
+                                        ->columns(4),
+                                ]),
+
+                            // 🔹 SECTION TOTAL
+                            InfoSection::make('Total')
+                                ->schema([
+                                    TextEntry::make('total')
+                                        ->label('Total Keseluruhan')
+                                        ->getStateUsing(
+                                            fn($record) =>
+                                            'Rp. ' . number_format(
+                                                $record->pengadaanDetail->sum('subtotal'),
+                                                0,
+                                                ',',
+                                                '.'
+                                            )
+                                        )
+                                        ->weight('bold'),
+                                ]),
+                        ]),
+                    Tables\Actions\EditAction::make()->label('Ubah'),
+                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                ])
+                    ->color('black'),
             ])
             ->actionsColumnLabel('Aksi')
-            // ->actionsAlignment('start')
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
@@ -213,7 +289,6 @@ class PengadaanResource extends Resource
             'index' => Pages\ListPengadaans::route('/'),
             'create' => Pages\CreatePengadaan::route('/create'),
             'edit' => Pages\EditPengadaan::route('/{record}/edit'),
-            'view' => Pages\ViewPengadaan::route('/{record}'),
         ];
     }
 }
