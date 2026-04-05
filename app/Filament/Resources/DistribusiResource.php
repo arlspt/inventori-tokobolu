@@ -26,6 +26,7 @@ use Filament\Infolists\Components\Section as InfoSection;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Carbon\Carbon;
+use Filament\Tables\Actions\Action;
 // use Illuminate\Database\Eloquent\Builder;
 // use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -98,7 +99,6 @@ class DistribusiResource extends Resource
                             ->rows(8)
                             ->columnSpan(1),
                     ]),
-
 
                 // SECTION DETAIL (INI REPEATER)
                 Section::make('Detail Produk')
@@ -283,9 +283,20 @@ class DistribusiResource extends Resource
                                         )
                                         ->weight('bold'),
                                 ]),
+
                         ]),
                     Tables\Actions\EditAction::make()->label('Ubah'),
                     Tables\Actions\DeleteAction::make()->label('Hapus'),
+                    Action::make('retur')
+                        ->label('Retur')
+                        ->icon('heroicon-o-arrow-uturn-left')
+                        ->color('warning')
+                        ->url(
+                            fn($record) =>
+                            route('filament.admin.resources.returs.create', [
+                                'distribusi_id' => $record->id
+                            ])
+                        ),
                 ])->color('black'),
             ])
 

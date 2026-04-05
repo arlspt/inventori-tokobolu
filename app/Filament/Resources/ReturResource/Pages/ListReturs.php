@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\ReturResource\Pages;
 
 use App\Filament\Resources\ReturResource;
-use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListReturs extends ListRecords
@@ -12,11 +11,6 @@ class ListReturs extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\CreateAction::make()
-                ->label('Tambah Retur')
-                ->modalHeading('Tambah Retur')
-                ->modalWidth('7xl'),
-        ];
+        return [];
     }
 }

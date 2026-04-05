@@ -38,8 +38,9 @@ class Distribusi extends Model
     }
     protected static function booted()
     {
-        static::saving(function ($distribusi) {
-            $distribusi->total = $distribusi->detail->sum('subtotal');
+        static::saved(function ($distribusi) {
+            $distribusi->total = $distribusi->detail()->sum('subtotal');
+            $distribusi->saveQuietly();
         });
     }
 }

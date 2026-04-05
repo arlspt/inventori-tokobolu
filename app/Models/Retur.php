@@ -25,7 +25,7 @@ class Retur extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function returDetail()
+    public function detail()
     {
         return $this->hasMany(ReturDetail::class);
     }
