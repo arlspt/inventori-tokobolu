@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Retur extends Model
 {
+    use SoftDeletes;
     protected $table = 'retur';
-
     protected $fillable = [
         'distribusi_id',
         'tanggal',
