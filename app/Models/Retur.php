@@ -30,4 +30,36 @@ class Retur extends Model
     {
         return $this->hasMany(ReturDetail::class);
     }
+    private function adjustDistribusi($retur, $mode = 'reduce')
+    {
+        foreach ($retur->detail as $item) {
+
+            $distribusiDetail = \App\Models\DistribusiDetail::where('distribusi_id', $retur->distribusi_id)
+                ->where('produk_id', $item->produk_id)
+                ->first();
+
+            if ($distribusiDetail) {
+                if ($mode === 'reduce') {
+                    $distribusiDetail->jumlah -= $item->jumlah;
+                } else {
+                    $distribusiDetail->jumlah += $item->jumlah;
+                }
+
+                $distribusiDetail->save();
+            }
+        }
+    }
+    protected static function booted()
+    {
+        static::creating(function ($retur) {
+
+            $exists = self::where('distribusi_id', $retur->distribusi_id)
+                ->whereNull('deleted_at')
+                ->exists();
+
+            if ($exists) {
+                throw new \Exception('Retur untuk distribusi ini sudah ada.');
+            }
+        });
+    }
 }

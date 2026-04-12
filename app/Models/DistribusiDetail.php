@@ -25,4 +25,10 @@ class DistribusiDetail extends Model
     {
         return $this->belongsTo(Produk::class);
     }
+    protected static function booted()
+    {
+        static::creating(function ($detail) {
+            $detail->jumlah_awal = $detail->jumlah;
+        });
+    }
 }

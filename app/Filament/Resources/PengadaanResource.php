@@ -17,6 +17,7 @@ use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Actions\ViewAction;
+use Filament\Forms\Components\Textarea;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Infolists\Components\Section as InfoSection;
 use Filament\Infolists\Components\RepeatableEntry;
@@ -53,13 +54,35 @@ class PengadaanResource extends Resource
                             ->label('Supplier')
                             ->relationship('supplier', 'nama_supplier')
                             ->searchable()
-                            ->required(),
+                            ->preload()
+                            ->placeholder('Pilih Supplier')
+                            ->required()
 
-                        // TextInput::make('kode_pengadaan')
-                        //     ->label('Kode Pengadaan')
-                        //     ->disabled()
-                        //     // ->dehydrated()
-                        //     ->default('AUTO'),
+                            // FORM TAMBAH SUPPLIER
+                            ->createOptionForm([
+                                TextInput::make('nama_supplier')
+                                    ->label('Nama Supplier')
+                                    ->required(),
+
+                                TextInput::make('telepon')
+                                    ->label('No. Telepon')
+                                    ->tel()
+                                    ->required(),
+
+                                Textarea::make('alamat')
+                                    ->label('Alamat')
+                                    ->required(),
+                            ])
+
+                            // CUSTOM BUTTON
+                            ->createOptionAction(function ($action) {
+                                return $action
+                                    ->label('Tambah Supplier')
+                                    ->modalHeading('Tambah Supplier Baru')
+                                    ->modalSubmitActionLabel('Simpan')
+                                    ->modalCancelActionLabel('Batal');
+                            }),
+
                     ]),
                 Section::make('Detail Bahan')
                     ->schema([
@@ -105,13 +128,27 @@ class PengadaanResource extends Resource
                                     ->label('Harga Satuan')
                                     ->numeric()
                                     ->prefix('Rp.')
-                                    ->required(),
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, $get, $set) {
+                                        $jumlah = $get('jumlah') ?? 0;
+                                        $set('subtotal', $state * $jumlah);
+                                    })
+                                    ->formatStateUsing(
+                                        fn($state) =>
+                                        number_format($state, 0, ',', '.')
+                                    ),
 
                                 TextInput::make('jumlah')
                                     ->label('Jumlah')
                                     ->postfix('Kg')
                                     ->numeric()
                                     ->required()
+                                    ->live() // 🔥 WAJIB
+                                    ->afterStateUpdated(function ($state, $get, $set) {
+                                        $harga = $get('harga') ?? 0;
+                                        $set('subtotal', $harga * $state);
+                                    })
                                     ->afterStateHydrated(function ($state, $set) {
                                         // gram → kg saat tampil
                                         if ($state) {
@@ -120,9 +157,14 @@ class PengadaanResource extends Resource
                                     }),
 
                                 TextInput::make('subtotal')
-                                    // ->numeric()
+                                    ->label('Subtotal')
                                     ->disabled()
-                                    ->dehydrated(),
+                                    ->dehydrated() // tetap disimpan ke DB
+                                    ->prefix('Rp.')
+                                    ->formatStateUsing(
+                                        fn($state) =>
+                                        number_format($state, 0, ',', '.')
+                                    ),
                             ])
                             ->addActionLabel('Tambah Pengadaan Detail')
                             ->addAction(

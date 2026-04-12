@@ -17,6 +17,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Forms\Components\Hidden;
+use Filament\Tables\Actions\ActionGroup;
 use Filament\Forms\Components\Grid;
 use Carbon\Carbon;
 
@@ -101,30 +102,33 @@ class ReturResource extends Resource
                                             ->helperText(function ($get) {
 
                                                 $produkId = $get('produk_id');
-                                                $distribusiId = $get('../../distribusi_id'); // 🔥 ini kunci
+                                                $distribusiId = $get('../../distribusi_id');
 
                                                 if (!$produkId || !$distribusiId) return null;
 
-                                                $distribusi = \App\Models\Distribusi::with('detail')
-                                                    ->find($distribusiId);
-
-                                                if (!$distribusi) return null;
-
-                                                $jumlahDistribusi = $distribusi->detail
+                                                $dist = \App\Models\DistribusiDetail::where('distribusi_id', $distribusiId)
                                                     ->where('produk_id', $produkId)
-                                                    ->first()?->jumlah ?? 0;
+                                                    ->first();
 
-                                                $sudahRetur = \App\Models\ReturDetail::whereHas('retur', function ($q) use ($distribusiId) {
-                                                    $q->where('distribusi_id', $distribusiId);
+                                                if (!$dist) return null;
+
+                                                $jumlahAwal = $dist->jumlah_awal;
+
+                                                $totalRetur = \App\Models\ReturDetail::whereHas('retur', function ($q) use ($distribusiId) {
+                                                    $q->where('distribusi_id', $distribusiId)
+                                                        ->whereNull('deleted_at');
                                                 })
                                                     ->where('produk_id', $produkId)
                                                     ->sum('jumlah');
 
-                                                $max = $jumlahDistribusi - $sudahRetur;
+                                                // 🔥 sisa retur
+                                                $max = $jumlahAwal - $totalRetur;
+
+                                                // 🔥 safety
+                                                if ($max < 0) $max = 0;
 
                                                 return "Maksimal retur: $max";
                                             })
-
                                             ->rule(function ($get) {
                                                 return function ($attribute, $value, $fail) use ($get) {
 
@@ -133,25 +137,27 @@ class ReturResource extends Resource
 
                                                     if (!$produkId || !$distribusiId) return;
 
-                                                    $distribusi = \App\Models\Distribusi::with('detail')
-                                                        ->find($distribusiId);
-
-                                                    if (!$distribusi) return;
-
-                                                    $jumlahDistribusi = $distribusi->detail
+                                                    $distribusiDetail = \App\Models\DistribusiDetail::where('distribusi_id', $distribusiId)
                                                         ->where('produk_id', $produkId)
-                                                        ->first()?->jumlah ?? 0;
+                                                        ->first();
 
-                                                    $sudahRetur = \App\Models\ReturDetail::whereHas('retur', function ($q) use ($distribusiId) {
-                                                        $q->where('distribusi_id', $distribusiId);
+                                                    if (!$distribusiDetail) return;
+
+                                                    $jumlahAwal = $distribusiDetail->jumlah_awal;
+
+                                                    $totalRetur = \App\Models\ReturDetail::whereHas('retur', function ($q) use ($distribusiId) {
+                                                        $q->where('distribusi_id', $distribusiId)
+                                                            ->whereNull('deleted_at');
                                                     })
                                                         ->where('produk_id', $produkId)
                                                         ->sum('jumlah');
 
-                                                    $max = $jumlahDistribusi - $sudahRetur;
+                                                    $current = $get('jumlah') ?? 0;
+
+                                                    $max = $jumlahAwal - ($totalRetur - $current);
 
                                                     if ($value > $max) {
-                                                        $fail("Jumlah melebihi maksimal ($max)");
+                                                        $fail("Maksimal retur: $max");
                                                     }
                                                 };
                                             })
@@ -201,14 +207,20 @@ class ReturResource extends Resource
                                             ])
                                             ->placeholder('Pilih alasan')
                                             ->native(false)
-                                            ->required()
+                                            ->required(fn($get) => ($get('jumlah') ?? 0) > 0)
+                                            ->visible(fn($get) => ($get('jumlah') ?? 0) > 0)
                                             ->reactive(),
 
                                         Textarea::make('alasan_lain')
                                             ->label('Alasan Lainnya')
                                             ->placeholder('Masukkan alasan lainnya')
-                                            ->visible(fn($get) => $get('alasan') === 'lainnya')
-                                            ->requiredIf('alasan', 'lainnya'),
+                                            ->visible(
+                                                fn($get) => ($get('jumlah') ?? 0) > 0 &&
+                                                    $get('alasan') === 'lainnya'
+                                            )
+                                            ->required(
+                                                fn($get) => ($get('jumlah') ?? 0) > 0 && $get('alasan') === 'lainnya'
+                                            ),
 
                                     ])
                                     ->columnSpan(1), // WAJIB
@@ -222,8 +234,40 @@ class ReturResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn($query) => $query->with(['detail.produk', 'distribusi.reseller', 'user']))
-            ->modifyQueryUsing(fn($query) => $query->withoutTrashed())
+            ->modifyQueryUsing(
+                fn($query) =>
+                $query->with(['detail.produk', 'distribusi.reseller', 'user'])
+                    ->withTrashed()
+            )
+            ->recordClasses(
+                fn($record) =>
+                $record->deleted_at
+                    ? 'opacity-70 text-gray-700'
+                    : null
+            )
+            ->defaultSort('deleted_at', 'asc')
+            ->filters([
+                \Filament\Tables\Filters\SelectFilter::make('status_retur')
+                    ->label('Status Retur')
+                    ->placeholder('Semua')
+                    ->options([
+                        // '' => 'Semua',
+                        'aktif' => 'Aktif',
+                        'dibatalkan' => 'Dibatalkan',
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (!isset($data['value']) || $data['value'] === '') {
+                            return $query; // semua
+                        }
+                        return match ($data['value']) {
+                            'aktif' => $query->whereNull('deleted_at'),
+                            'dibatalkan' => $query->onlyTrashed(),
+                            default => $query,
+                        };
+                    }),
+            ])
+            ->recordUrl(null)
+            ->recordAction('view')
             ->columns([
 
                 TextColumn::make('tanggal')
@@ -253,78 +297,85 @@ class ReturResource extends Resource
 
                 TextColumn::make('user.name')
                     ->label('Dibuat Oleh'),
+
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->getStateUsing(
+                        fn($record) =>
+                        $record->deleted_at ? 'Dibatalkan' : 'Aktif'
+                    )
+                    ->badge()
+                    ->colors([
+                        'success' => fn($state) => $state === 'Aktif',
+                        'danger' => fn($state) => $state === 'Dibatalkan',
+                    ]),
             ])
             ->headerActions([])
 
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Detail')
-                    ->infolist([
+                ActionGroup::make([
+                    Tables\Actions\ViewAction::make()
+                        ->label('View')
+                        ->color('info')
+                        ->infolist([
+                            \Filament\Infolists\Components\Section::make('Data Distribusi')
+                                ->schema([
+                                    \Filament\Infolists\Components\TextEntry::make('distribusi_id')
+                                        ->label('Distribusi')
+                                        ->formatStateUsing(
+                                            fn($record) =>
+                                            $record->distribusi->reseller
+                                                ? $record->distribusi->reseller->nama_reseller
+                                                : $record->distribusi->tujuan_lain
+                                        ),
 
-                        \Filament\Infolists\Components\Section::make('Data Distribusi')
-                            ->schema([
-                                \Filament\Infolists\Components\TextEntry::make('distribusi_id')
-                                    ->label('Distribusi')
-                                    ->formatStateUsing(
-                                        fn($record) =>
-                                        $record->distribusi->reseller
-                                            ? $record->distribusi->reseller->nama_reseller
-                                            : $record->distribusi->tujuan_lain
-                                    ),
+                                    \Filament\Infolists\Components\TextEntry::make('distribusi.tanggal')
+                                        ->label('Tanggal Distribusi')
+                                        ->date('d F Y'),
+                                ])->columns(2),
 
-                                \Filament\Infolists\Components\TextEntry::make('distribusi.tanggal')
-                                    ->label('Tanggal Distribusi')
-                                    ->date('d F Y'),
-                            ])->columns(2),
+                            \Filament\Infolists\Components\Section::make('Data Retur')
+                                ->schema([
+                                    \Filament\Infolists\Components\TextEntry::make('tanggal')
+                                        ->label('Tanggal Retur')
+                                        ->date('d F Y'),
 
-                        \Filament\Infolists\Components\Section::make('Data Retur')
-                            ->schema([
-                                \Filament\Infolists\Components\TextEntry::make('tanggal')
-                                    ->label('Tanggal Retur')
-                                    ->date('d F Y'),
+                                    \Filament\Infolists\Components\TextEntry::make('keterangan')
+                                        ->label('Keterangan'),
+                                ])->columns(2),
 
-                                \Filament\Infolists\Components\TextEntry::make('keterangan')
-                                    ->label('Keterangan'),
-                            ])->columns(2),
+                            \Filament\Infolists\Components\Section::make('Detail Retur')
+                                ->schema([
+                                    \Filament\Infolists\Components\RepeatableEntry::make('detail')->label('Daftar Produk Retur')
+                                        ->schema([
+                                            \Filament\Infolists\Components\TextEntry::make('produk.nama_produk'),
+                                            \Filament\Infolists\Components\TextEntry::make('jumlah')->label('Jumlah Retur'),
+                                            \Filament\Infolists\Components\TextEntry::make('alasan')
+                                                ->formatStateUsing(fn($state) => match ($state) {
+                                                    'rusak' => 'Barang Rusak',
+                                                    'expired' => 'Expired',
+                                                    'salah_kirim' => 'Salah Kirim',
+                                                    'retur_pelanggan' => 'Retur Pelanggan',
+                                                    default => $state,
+                                                }),
+                                        ])->columns(3)
+                                ]),
+                        ]),
 
-                        \Filament\Infolists\Components\Section::make('Detail Retur')
-                            ->schema([
-                                \Filament\Infolists\Components\RepeatableEntry::make('detail')->label('Daftar Produk Retur')
-                                    ->schema([
-                                        \Filament\Infolists\Components\TextEntry::make('produk.nama_produk'),
-                                        \Filament\Infolists\Components\TextEntry::make('jumlah')->label('Jumlah Retur'),
-                                        \Filament\Infolists\Components\TextEntry::make('alasan')
-                                            ->formatStateUsing(fn($state) => match ($state) {
-                                                'rusak' => 'Barang Rusak',
-                                                'expired' => 'Expired',
-                                                'salah_kirim' => 'Salah Kirim',
-                                                'retur_pelanggan' => 'Retur Pelanggan',
-                                                default => $state,
-                                            }),
-                                    ])->columns(3)
-                            ]),
-                    ]),
+                    Tables\Actions\EditAction::make()
+                        ->label('Ubah'),
 
-                Tables\Actions\EditAction::make()
-                    ->label('Ubah'),
-
-                Tables\Actions\Action::make('batal')
-                    ->label('Batal Retur')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->requiresConfirmation()
-                    ->action(fn($record) => $record->delete())
-                // ->filters([
-                //     Tables\Filters\TrashedFilter::make(),
-                // ])
-                ,
-            ]);
+                    Tables\Actions\Action::make('batal')
+                        ->label('Batal Retur')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->action(fn($record) => $record->delete())
+                        ->visible(fn($record) => $record->deleted_at === null),
+                ])->color('black'),
+            ])->actionsColumnLabel('Aksi');
     }
-    // Nonaktifkan tombol Create
-    // public static function canCreate(): bool
-    // {
-    //     return false;
-    // }
+
     public static function getRelations(): array
     {
         return [

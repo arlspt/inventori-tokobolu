@@ -82,10 +82,12 @@ class CreateRetur extends CreateRecord
         // 🔥 isi repeater
         $this->form->getComponent('data.detail')->state(
             $distribusi->detail->map(function ($item) {
+                $max = $item->jumlah_awal ?? $item->jumlah;
+
                 return [
                     'produk_id' => $item->produk_id,
                     'jumlah' => 0,
-                    'max_jumlah' => $item->jumlah, // INI FIX
+                    'max_jumlah' => $max,
                     'alasan' => null,
                 ];
             })->toArray()

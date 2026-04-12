@@ -63,6 +63,7 @@ class DistribusiResource extends Resource
                                     ->relationship('reseller', 'nama_reseller')
                                     ->searchable()
                                     ->preload()
+                                    ->reactive()
                                     ->createOptionForm([
                                         TextInput::make('nama_reseller')
                                             ->label('Nama Reseller')
@@ -90,6 +91,7 @@ class DistribusiResource extends Resource
                                     ->label('Tujuan Lain')
                                     ->placeholder('Isi jika bukan reseller')
                                     ->requiredWithout('reseller_id')
+                                    ->visible(fn($get) => !$get('reseller_id'))
                                     ->dehydrated(),
                             ])
                             ->columnSpan(1),
@@ -210,6 +212,38 @@ class DistribusiResource extends Resource
                         ->label('Detail')
                         ->modalHeading('Detail Distribusi')
                         ->color('info')
+                        ->modalFooterActions([
+                            Action::make('retur')
+                                ->label(
+                                    fn($record) =>
+                                    \App\Models\Retur::where('distribusi_id', $record->id)
+                                        ->whereNull('deleted_at')
+                                        ->exists()
+                                        ? 'Edit Retur'
+                                        : 'Buat Retur'
+                                )
+                                ->icon('heroicon-o-arrow-uturn-left')
+                                ->color('warning')
+                                ->action(function ($record) {
+                                    $retur = \App\Models\Retur::where('distribusi_id', $record->id)
+                                        ->whereNull('deleted_at')
+                                        ->first();
+                                    // kalau sudah ada -> edit
+                                    if ($retur) {
+                                        return redirect()->to(
+                                            route('filament.admin.resources.returs.edit', [
+                                                'record' => $retur->id
+                                            ])
+                                        );
+                                    }
+                                    // kalau belum ada -> create
+                                    return redirect()->to(
+                                        route('filament.admin.resources.returs.create', [
+                                            'distribusi_id' => $record->id
+                                        ])
+                                    );
+                                })
+                        ])
                         ->infolist([
 
                             // SECTION DATA DISTRIBUSI
@@ -288,15 +322,33 @@ class DistribusiResource extends Resource
                     Tables\Actions\EditAction::make()->label('Ubah'),
                     Tables\Actions\DeleteAction::make()->label('Hapus'),
                     Action::make('retur')
-                        ->label('Retur')
-                        ->icon('heroicon-o-arrow-uturn-left')
-                        ->color('warning')
-                        ->url(
+                        ->label(
                             fn($record) =>
-                            route('filament.admin.resources.returs.create', [
+                            \App\Models\Retur::where('distribusi_id', $record->id)
+                                ->whereNull('deleted_at')
+                                ->exists()
+                                ? 'Edit Retur'
+                                : 'Buat Retur'
+                        )->icon('heroicon-o-arrow-uturn-left')
+                        ->color('warning')
+                        ->url(function ($record) {
+
+                            $retur = \App\Models\Retur::where('distribusi_id', $record->id)
+                                ->whereNull('deleted_at')
+                                ->first();
+
+                            // kalau sudah ada -> edit
+                            if ($retur) {
+                                return route('filament.admin.resources.returs.edit', [
+                                    'record' => $retur->id
+                                ]);
+                            }
+
+                            // kalau belum ada -> create
+                            return route('filament.admin.resources.returs.create', [
                                 'distribusi_id' => $record->id
-                            ])
-                        ),
+                            ]);
+                        })
                 ])->color('black'),
             ])
 
