@@ -27,17 +27,14 @@ use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Carbon\Carbon;
 use Filament\Tables\Actions\Action;
-// use Illuminate\Database\Eloquent\Builder;
-// use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class DistribusiResource extends Resource
 {
     protected static ?string $model = Distribusi::class;
-
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?int $navigationSort = 3; // Urutan 3 menu di sidebar
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-up-right';
     protected static ?string $navigationLabel = 'Distribusi';
     protected static ?string $pluralModelLabel = 'Distribusi';
-
 
     public static function form(Form $form): Form
     {
@@ -62,6 +59,7 @@ class DistribusiResource extends Resource
                                     ->label('Reseller')
                                     ->relationship('reseller', 'nama_reseller')
                                     ->searchable()
+                                    ->placeholder('Pilih Reseller')
                                     ->preload()
                                     ->reactive()
                                     ->createOptionForm([
@@ -98,6 +96,7 @@ class DistribusiResource extends Resource
 
                         Textarea::make('keterangan')
                             ->label('Keterangan')
+                            ->placeholder('Masukkan keterangan tambahan (opsional)')
                             ->rows(8)
                             ->columnSpan(1),
                     ]),
@@ -115,6 +114,7 @@ class DistribusiResource extends Resource
                                     ->label('Produk')
                                     ->relationship('produk', 'nama_produk')
                                     ->searchable()
+                                    ->placeholder('Pilih Produk')
                                     ->preload()
                                     ->required()
                                     ->live()
@@ -167,7 +167,7 @@ class DistribusiResource extends Resource
             )
 
             ->recordUrl(null) // penting
-            ->recordAction('view') // klik row → modal
+            ->recordAction('view') // klik row -> modal
 
             ->columns([
                 TextColumn::make('tanggal')
@@ -219,7 +219,7 @@ class DistribusiResource extends Resource
                                     \App\Models\Retur::where('distribusi_id', $record->id)
                                         ->whereNull('deleted_at')
                                         ->exists()
-                                        ? 'Edit Retur'
+                                        ? 'Ubah Retur'
                                         : 'Buat Retur'
                                 )
                                 ->icon('heroicon-o-arrow-uturn-left')
@@ -317,7 +317,6 @@ class DistribusiResource extends Resource
                                         )
                                         ->weight('bold'),
                                 ]),
-
                         ]),
                     Tables\Actions\EditAction::make()->label('Ubah'),
                     Tables\Actions\DeleteAction::make()->label('Hapus'),
@@ -327,7 +326,7 @@ class DistribusiResource extends Resource
                             \App\Models\Retur::where('distribusi_id', $record->id)
                                 ->whereNull('deleted_at')
                                 ->exists()
-                                ? 'Edit Retur'
+                                ? 'Ubah Retur'
                                 : 'Buat Retur'
                         )->icon('heroicon-o-arrow-uturn-left')
                         ->color('warning')
@@ -363,9 +362,7 @@ class DistribusiResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array

@@ -24,8 +24,8 @@ use Carbon\Carbon;
 class ReturResource extends Resource
 {
     protected static ?string $model = Retur::class;
-
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?int $navigationSort = 4; // Urutan 4 menu di sidebar
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-uturn-left';
     protected static ?string $navigationLabel = 'Retur';
     protected static ?string $pluralModelLabel = 'Retur';
 
@@ -34,7 +34,7 @@ class ReturResource extends Resource
         return $form
             ->schema([
 
-                // 🔹 DATA DISTRIBUSI (HARUS DI ATAS)
+                // DATA DISTRIBUSI (HARUS DI ATAS)
                 Section::make('Data Distribusi')
                     ->schema([
                         TextInput::make('distribusi_info')
@@ -49,7 +49,7 @@ class ReturResource extends Resource
                     ])
                     ->columns(2),
 
-                // 🔹 DATA RETUR
+                // DATA RETUR
                 Section::make('Data Retur')
                     ->columns(2)
                     ->schema([
@@ -81,7 +81,7 @@ class ReturResource extends Resource
                             ->columns(2)
                             ->schema([
 
-                                // 🔹 KOLOM KIRI
+                                // KOLOM KIRI
                                 Grid::make(1)
                                     ->schema([
 
@@ -121,10 +121,10 @@ class ReturResource extends Resource
                                                     ->where('produk_id', $produkId)
                                                     ->sum('jumlah');
 
-                                                // 🔥 sisa retur
+                                                // sisa retur
                                                 $max = $jumlahAwal - $totalRetur;
 
-                                                // 🔥 safety
+                                                // safety
                                                 if ($max < 0) $max = 0;
 
                                                 return "Maksimal retur: $max";
@@ -190,9 +190,9 @@ class ReturResource extends Resource
                                                 }
                                             })
                                     ])
-                                    ->columnSpan(1), // 🔥 WAJIB
+                                    ->columnSpan(1), // WAJIB
 
-                                // 🔹 KOLOM KANAN
+                                // KOLOM KANAN
                                 Grid::make(1)
                                     ->schema([
 
@@ -251,7 +251,6 @@ class ReturResource extends Resource
                     ->label('Status Retur')
                     ->placeholder('Semua')
                     ->options([
-                        // '' => 'Semua',
                         'aktif' => 'Aktif',
                         'dibatalkan' => 'Dibatalkan',
                     ])
@@ -378,9 +377,7 @@ class ReturResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array

@@ -7,11 +7,14 @@ use Filament\Resources\Pages\CreateRecord;
 use App\Models\Distribusi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Filament\Actions\Action;
 
 class CreateRetur extends CreateRecord
 {
 
     protected static string $resource = ReturResource::class;
+    protected static bool $canCreateAnother = false; //menghilangkan opsi tombol "Create & Create Another" pada form create
+
 
     // Ubah Judul Page Dinamis
     public function getTitle(): string
@@ -65,7 +68,7 @@ class CreateRetur extends CreateRecord
 
         if (!$distribusi) return;
 
-        // 🔥 isi semua field display
+        // isi semua field display
         $this->form->fill([
             'distribusi_id' => $distribusi->id,
 
@@ -79,7 +82,7 @@ class CreateRetur extends CreateRecord
                 ->translatedFormat('d F Y'),
         ]);
 
-        // 🔥 isi repeater
+        // isi repeater
         $this->form->getComponent('data.detail')->state(
             $distribusi->detail->map(function ($item) {
                 $max = $item->jumlah_awal ?? $item->jumlah;
@@ -92,5 +95,17 @@ class CreateRetur extends CreateRecord
                 ];
             })->toArray()
         );
+    }
+    //Mengganti label tombol simpan dan batal pada form create
+    protected function getCreateFormAction(): Action
+    {
+        return parent::getCreateFormAction()
+            ->label('Simpan');
+    }
+
+    protected function getCancelFormAction(): Action
+    {
+        return parent::getCancelFormAction()
+            ->label('Batal');
     }
 }

@@ -28,7 +28,8 @@ use Carbon\Carbon;
 class ProduksiResource extends Resource
 {
     protected static ?string $model = Produksi::class;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?int $navigationSort = 2; // Urutan 2 menu di sidebar
+    protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
     protected static ?string $navigationLabel = 'Produksi';
     protected static ?string $pluralModelLabel = 'Produksi';
     public static function form(Form $form): Form
@@ -62,6 +63,7 @@ class ProduksiResource extends Resource
                                 // 🔥 PRODUK + TAMBAH LANGSUNG
                                 Select::make('produk_id')
                                     ->label('Produk')
+                                    ->placeholder('Pilih Produk')
                                     ->relationship('produk', 'nama_produk')
                                     ->searchable()
                                     ->preload()

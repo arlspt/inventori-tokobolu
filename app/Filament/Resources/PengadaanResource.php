@@ -27,13 +27,11 @@ use Carbon\Carbon;
 class PengadaanResource extends Resource
 {
     protected static ?string $model = Pengadaan::class;
-
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?int $navigationSort = 1; // Urutan 1 menu di sidebar
+    protected static ?string $navigationIcon = 'heroicon-o-truck';
     protected static ?string $navigationLabel = 'Pengadaan Bahan Baku';
     protected static ?string $modelLabel = 'Pengadaan';
     protected static ?string $pluralModelLabel = 'Pengadaan Bahan Baku';
-
-
 
     public static function form(Form $form): Form
     {
@@ -97,9 +95,9 @@ class PengadaanResource extends Resource
                                     ->color('danger')
                             )
                             ->schema([
-
                                 Select::make('bahan_baku_id')
                                     ->label('Bahan Baku')
+                                    ->placeholder('Pilih Bahan Baku')
                                     ->relationship('bahanBaku', 'nama_bahan')
                                     ->searchable()
                                     ->preload()
@@ -144,13 +142,13 @@ class PengadaanResource extends Resource
                                     ->postfix('Kg')
                                     ->numeric()
                                     ->required()
-                                    ->live() // 🔥 WAJIB
+                                    ->live() // WAJIB
                                     ->afterStateUpdated(function ($state, $get, $set) {
                                         $harga = $get('harga') ?? 0;
                                         $set('subtotal', $harga * $state);
                                     })
                                     ->afterStateHydrated(function ($state, $set) {
-                                        // gram → kg saat tampil
+                                        // gram -> kg saat tampil
                                         if ($state) {
                                             $set('jumlah', $state / 1000);
                                         }
@@ -172,7 +170,6 @@ class PengadaanResource extends Resource
                                     ->label('Pengadaan Detail')
                                     ->icon('heroicon-m-plus') // menambahkan icon di button
                             )
-                        // ->collapsible()
                     ]),
             ]);
     }
@@ -273,7 +270,7 @@ class PengadaanResource extends Resource
                                         ->columns(4),
                                 ]),
 
-                            // 🔹 SECTION TOTAL
+                            // SECTION TOTAL
                             InfoSection::make('Total')
                                 ->schema([
                                     TextEntry::make('total')
@@ -309,21 +306,6 @@ class PengadaanResource extends Resource
             //
         ];
     }
-    // public static function getNavigationLabel(): string
-    // {
-    //     return 'Pengadaannnn';
-    // }
-    // protected function getCreateFormAction(): Action
-    // {
-    //     return parent::getCreateFormAction()
-    //         ->label('Simpan');
-    // }
-
-    // protected function getCancelFormAction(): Action
-    // {
-    //     return parent::getCancelFormAction()
-    //         ->label('Batal');
-    // }
 
     public static function getPages(): array
     {

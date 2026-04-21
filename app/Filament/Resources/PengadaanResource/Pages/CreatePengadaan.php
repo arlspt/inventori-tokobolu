@@ -9,6 +9,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreatePengadaan extends CreateRecord
 {
     protected static string $resource = PengadaanResource::class;
+    protected static ?string $title = 'Tambah Pengadaan'; //ubah judul halaman create menjadi "Tambah Pengadaan"
+    protected static bool $canCreateAnother = false; //menghilangkan opsi tombol "Create & Create Another" pada form create
+
     //Mengganti label tombol simpan dan batal pada form create
     protected function getCreateFormAction(): Action
     {
@@ -20,5 +23,9 @@ class CreatePengadaan extends CreateRecord
     {
         return parent::getCancelFormAction()
             ->label('Batal');
+    }
+    public function getBreadcrumb(): string
+    {
+        return 'Tambah Pengadaan';
     }
 }

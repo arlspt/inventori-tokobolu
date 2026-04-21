@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Model;
 class ReturDetail extends Model
 {
     protected $table = 'retur_detail';
-
     protected $fillable = [
         'retur_id',
         'produk_id',
@@ -26,7 +25,7 @@ class ReturDetail extends Model
     }
     protected static function booted()
     {
-        // 🔥 saat create retur detail
+        // saat create retur detail
         static::created(function ($detail) {
 
             $retur = $detail->retur;
@@ -46,7 +45,7 @@ class ReturDetail extends Model
             }
         });
 
-        // 🔥 saat delete retur detail
+        // saat delete retur detail
         static::deleted(function ($detail) {
 
             $retur = $detail->retur;
@@ -70,7 +69,7 @@ class ReturDetail extends Model
                 ->first();
 
             if ($distribusiDetail) {
-                // 🔥 balikin jumlah lama dulu
+                // balikin jumlah lama dulu
                 $distribusiDetail->jumlah += $detail->getOriginal('jumlah');
                 $distribusiDetail->save();
             }
@@ -83,7 +82,7 @@ class ReturDetail extends Model
                 ->first();
 
             if ($distribusiDetail) {
-                // 🔥 kurangi jumlah baru
+                // kurangi jumlah baru
                 $distribusiDetail->jumlah -= $detail->jumlah;
 
                 if ($distribusiDetail->jumlah < 0) {
