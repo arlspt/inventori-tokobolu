@@ -6,21 +6,19 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('distribusi', function (Blueprint $table) {
-            $table->id();
-            $table->date('tanggal');
-            $table->foreignId('reseller_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('tujuan_lain')->nullable();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('nomor_invoice')->nullable();
-            $table->decimal('total', 10, 2)->default(0);
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('distribusi')) {
+            Schema::create('distribusi', function (Blueprint $table) {
+                $table->id();
+                $table->date('tanggal');
+                $table->foreignId('reseller_id')->constrained('reseller')->cascadeOnDelete();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->string('nomor_invoice')->nullable();
+                $table->decimal('total', 10, 2)->default(0);
+                $table->timestamps();
+            });
+        }
     }
 
     /**

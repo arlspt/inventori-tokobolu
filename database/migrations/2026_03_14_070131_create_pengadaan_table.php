@@ -11,19 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('pengadaan', function (Blueprint $table) {
-            $table->id();
-            $table->date('tanggal');
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('supplier_id')->constrained()->cascadeOnDelete();
-            $table->text('keterangan')->nullable();
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('pengadaan')) {
+            Schema::create('pengadaan', function (Blueprint $table) {
+                $table->id();
+                $table->date('tanggal');
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('supplier_id')->constrained()->cascadeOnDelete();
+                $table->text('keterangan')->nullable();
+                $table->timestamps();
+            });
+        }
     }
-
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('pengadaan');

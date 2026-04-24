@@ -101,9 +101,18 @@ class PengadaanResource extends Resource
                                     ->relationship('bahanBaku', 'nama_bahan')
                                     ->searchable()
                                     ->preload()
+                                    ->live()
                                     ->createOptionForm([
                                         TextInput::make('nama_bahan')
                                             ->label('Nama bahan')
+                                            ->required(),
+                                        Select::make('satuan')
+                                            ->label('Satuan')
+                                            ->placeholder('Pilih Satuan')
+                                            ->options([
+                                                'gram' => 'Gram (Padat)',
+                                                'ml' => 'Mililiter (Cair)',
+                                            ])
                                             ->required(),
 
                                         TextInput::make('stok')
@@ -123,14 +132,19 @@ class PengadaanResource extends Resource
                                     ->required(),
 
                                 TextInput::make('harga')
-                                    ->label('Harga Satuan')
+                                    ->label(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
+                                        'ml' => 'Harga / ml',
+                                        default => 'Harga / gram',
+                                    })
                                     ->numeric()
                                     ->prefix('Rp.')
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(function ($state, $get, $set) {
-                                        $jumlah = $get('jumlah') ?? 0;
-                                        $set('subtotal', $state * $jumlah);
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        $harga = $get('harga') ?? 0;
+                                        $jumlahKg = $get('jumlah') ?? 0;
+                                        $jumlahGram = $jumlahKg * 1000;
+                                        $set('subtotal', $harga * $jumlahGram);
                                     })
                                     ->formatStateUsing(
                                         fn($state) =>
@@ -138,20 +152,32 @@ class PengadaanResource extends Resource
                                     ),
 
                                 TextInput::make('jumlah')
-                                    ->label('Jumlah')
-                                    ->postfix('Kg')
+                                    ->label(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
+                                        'ml' => 'Jumlah / ml',
+                                        default => 'Jumlah / gram',
+                                    })
+                                    ->suffix(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
+                                        'ml' => 'L',
+                                        default => 'Kg',
+                                    })
                                     ->numeric()
+                                    ->step(0.1) // biar bisa 0.8
                                     ->required()
                                     ->live() // WAJIB
-                                    ->afterStateUpdated(function ($state, $get, $set) {
-                                        $harga = $get('harga') ?? 0;
-                                        $set('subtotal', $harga * $state);
-                                    })
+                                    // 🔥 SAAT LOAD (Edit/View)
                                     ->afterStateHydrated(function ($state, $set) {
-                                        // gram -> kg saat tampil
-                                        if ($state) {
+                                        if ($state !== null) {
                                             $set('jumlah', $state / 1000);
                                         }
+                                    })
+                                    // 🔥 SAAT SIMPAN
+                                    ->dehydrateStateUsing(fn($state) => (int) round($state * 1000))
+
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        $harga = $get('harga') ?? 0;
+                                        $jumlahKg = $get('jumlah') ?? 0;
+                                        $jumlahGram = $jumlahKg * 1000;
+                                        $set('subtotal', $harga * $jumlahGram);
                                     }),
 
                                 TextInput::make('subtotal')
@@ -162,7 +188,17 @@ class PengadaanResource extends Resource
                                     ->formatStateUsing(
                                         fn($state) =>
                                         number_format($state, 0, ',', '.')
-                                    ),
+                                    )
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        $harga = $get('harga') ?? 0;
+                                        $jumlah = $get('jumlah') ?? 0;
+
+                                        // jumlah masih dalam KG di form
+                                        $jumlahGram = $jumlah * 1000;
+
+                                        $set('subtotal', $harga * $jumlahGram);
+                                    }),
+
                             ])
                             ->addActionLabel('Tambah Pengadaan Detail')
                             ->addAction(

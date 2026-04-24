@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProduksiResource\Pages;
-// use App\Filament\Resources\ProduksiResource\RelationManagers;
 use App\Models\Produksi;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -22,8 +21,8 @@ use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Tables\Actions\ActionGroup;
 use Carbon\Carbon;
-// use Illuminate\Database\Eloquent\Builder;
-// use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Hidden;
 
 class ProduksiResource extends Resource
 {
@@ -60,7 +59,7 @@ class ProduksiResource extends Resource
                             ->addActionLabel('Tambah Produk') // Ubah label tombol "Add Item" menjadi "Tambah Produk"
                             ->columns(3)
                             ->schema([
-                                // 🔥 PRODUK + TAMBAH LANGSUNG
+                                // PRODUK + TAMBAH LANGSUNG
                                 Select::make('produk_id')
                                     ->label('Produk')
                                     ->placeholder('Pilih Produk')
@@ -75,26 +74,191 @@ class ProduksiResource extends Resource
                                             $set('jumlah_produksi', 1);
                                         }
                                     })
-
-                                    ->createOptionForm([
-                                        TextInput::make('nama_produk')
-                                            ->label('Nama Produk')
-                                            ->required(),
-
-                                        TextInput::make('harga')
-                                            ->label('Harga')
-                                            ->numeric()
-                                            ->prefix('Rp.')
-                                            ->required(),
-                                    ])
-
-                                    ->createOptionAction(function ($action) {
-                                        return $action
-                                            ->label('Tambah Produk')
-                                            ->modalHeading('Tambah Produk Baru')
+                                    // ->suffixAction(
+                                    //     \Filament\Forms\Components\Actions\Action::make('resep')
+                                    //         ->icon('heroicon-o-plus')
+                                    //         ->tooltip('Tambah Produk')
+                                    //         ->url('/admin/produks/create')
+                                    // )
+                                    ->suffixAction(
+                                        Action::make('kelolaProduk')
+                                            ->label('Kelola Produk')
+                                            ->icon('heroicon-o-cog-6-tooth')
+                                            ->modalHeading('Kelola Produk')
                                             ->modalSubmitActionLabel('Simpan')
-                                            ->modalCancelActionLabel('Batal');
-                                    }),
+                                            ->form([
+
+                                                // MODE
+                                                Select::make('mode')
+                                                    ->label('Aksi')
+                                                    ->options([
+                                                        'tambah' => 'Tambah Produk',
+                                                        'edit' => 'Ubah Produk',
+                                                        'hapus' => 'Hapus Produk',
+                                                    ])
+                                                    ->placeholder('Pilih Aksi')
+                                                    ->native(false)
+                                                    ->required()
+                                                    ->live()
+                                                    ->afterStateUpdated(function ($state, $set) {
+                                                        // 🔥 RESET SEMUA FIELD
+                                                        $set('produk_id', null);
+                                                        $set('nama_produk', null);
+                                                        $set('harga', null);
+                                                        if ($state === 'tambah') {
+                                                            $set('resep', [
+                                                                ['bahan_baku_id' => null, 'jumlah' => null]
+                                                            ]);
+                                                        } else {
+                                                            $set('resep', []);
+                                                        }
+                                                    }),
+
+                                                // PILIH PRODUK (hanya untuk edit & hapus)
+                                                Select::make('produk_id')
+                                                    ->label('Pilih Produk')
+                                                    ->options(\App\Models\Produk::pluck('nama_produk', 'id'))
+                                                    ->searchable()
+                                                    ->placeholder('Pilih produk yang mau diubah')
+                                                    ->visible(fn($get) => in_array($get('mode'), ['edit', 'hapus']))
+                                                    ->required(fn($get) => in_array($get('mode'), ['edit', 'hapus']))
+                                                    ->live()
+                                                    ->afterStateUpdated(function ($state, $set, $get) {
+
+                                                        if (!$state || $get('mode') !== 'edit') return;
+
+                                                        $produk = \App\Models\Produk::with('resep')->find($state);
+                                                        if (!$produk) return;
+
+                                                        // isi field
+                                                        $set('nama_produk', $produk->nama_produk);
+                                                        $set('harga', $produk->harga);
+
+                                                        // isi repeater resep
+                                                        $set('resep', $produk->resep->map(fn($r) => [
+                                                            'bahan_baku_id' => $r->bahan_baku_id,
+                                                            'jumlah' => $r->jumlah,
+                                                        ])->toArray());
+                                                    }),
+
+                                                // NAMA PRODUK
+                                                TextInput::make('nama_produk')
+                                                    ->label('Nama Produk')
+                                                    ->visible(fn($get) => $get('mode') !== 'hapus')
+                                                    ->visible(fn($get) => $get('mode') !== 'edit')
+                                                    ->required(fn($get) => $get('mode') !== 'hapus')
+                                                    ->afterStateHydrated(function ($set, $get) {
+                                                        if ($get('produk_id')) {
+                                                            $produk = \App\Models\Produk::find($get('produk_id'));
+                                                            $set('nama_produk', $produk?->nama_produk);
+                                                        }
+                                                    }),
+
+                                                // HARGA
+                                                TextInput::make('harga')
+                                                    ->numeric()
+                                                    ->visible(fn($get) => $get('mode') !== 'hapus')
+                                                    ->required(fn($get) => $get('mode') !== 'hapus')
+                                                    ->afterStateHydrated(function ($set, $get) {
+                                                        if ($get('produk_id')) {
+                                                            $produk = \App\Models\Produk::find($get('produk_id'));
+                                                            $set('harga', $produk?->harga);
+                                                        }
+                                                    }),
+
+                                                // RESEP
+                                                Repeater::make('resep')
+                                                    ->visible(fn($get) => $get('mode') !== 'hapus')
+                                                    ->required()
+                                                    ->reorderable(false)
+                                                    ->schema([
+                                                        Select::make('bahan_baku_id')
+                                                            ->label('Bahan Baku')
+                                                            ->options(\App\Models\BahanBaku::pluck('nama_bahan', 'id'))
+                                                            ->searchable()
+                                                            ->required()
+                                                            ->live()
+                                                            ->placeholder('Pilih Bahan Baku')
+                                                            ->native(false),
+
+                                                        TextInput::make('jumlah')
+                                                            ->numeric()
+                                                            ->required()
+                                                            ->reactive()
+                                                            ->label(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
+                                                                'ml' => 'Jumlah (ml)',
+                                                                default => 'Jumlah (gram)',
+                                                            })
+                                                            ->suffix(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
+                                                                'ml' => 'ml',
+                                                                default => 'gr',
+                                                            }),
+                                                    ])
+                                                    ->afterStateHydrated(function ($set, $get) {
+
+                                                        if ($get('produk_id')) {
+                                                            $produk = \App\Models\Produk::with('resep')->find($get('produk_id'));
+
+                                                            $set('resep', $produk?->resep->map(fn($r) => [
+                                                                'bahan_baku_id' => $r->bahan_baku_id,
+                                                                'jumlah' => $r->jumlah,
+                                                            ])->toArray());
+                                                        }
+                                                    })->columns(2),
+
+                                            ])
+                                            ->action(function ($data) {
+
+                                                // 🔥 TAMBAH
+                                                if ($data['mode'] === 'tambah') {
+
+                                                    $produk = \App\Models\Produk::create([
+                                                        'nama_produk' => $data['nama_produk'],
+                                                        'harga' => $data['harga'],
+                                                    ]);
+
+                                                    foreach ($data['resep'] as $item) {
+                                                        \App\Models\Resep::create([
+                                                            'produk_id' => $produk->id,
+                                                            'bahan_baku_id' => $item['bahan_baku_id'],
+                                                            'jumlah' => $item['jumlah'],
+                                                        ]);
+                                                    }
+                                                }
+
+                                                // 🔥 EDIT
+                                                if ($data['mode'] === 'edit') {
+
+                                                    $produk = \App\Models\Produk::find($data['produk_id']);
+                                                    if (!$produk) return;
+
+                                                    $produk->update([
+                                                        'nama_produk' => $data['nama_produk'],
+                                                        'harga' => $data['harga'],
+                                                    ]);
+
+                                                    \App\Models\Resep::where('produk_id', $produk->id)->delete();
+
+                                                    foreach ($data['resep'] as $item) {
+                                                        \App\Models\Resep::create([
+                                                            'produk_id' => $produk->id,
+                                                            'bahan_baku_id' => $item['bahan_baku_id'],
+                                                            'jumlah' => $item['jumlah'],
+                                                        ]);
+                                                    }
+                                                }
+
+                                                // 🔥 HAPUS
+                                                if ($data['mode'] === 'hapus') {
+
+                                                    $produk = \App\Models\Produk::find($data['produk_id']);
+                                                    if (!$produk) return;
+
+                                                    \App\Models\Resep::where('produk_id', $produk->id)->delete();
+                                                    $produk->delete();
+                                                }
+                                            })
+                                    ),
 
                                 // 🔥 JUMLAH
                                 TextInput::make('jumlah_produksi')
@@ -125,7 +289,7 @@ class ProduksiResource extends Resource
                 TextColumn::make('tanggal')
                     ->label('Hari, Tanggal')
                     ->formatStateUsing(function ($state) {
-                        return \Carbon\Carbon::parse($state)
+                        return Carbon::parse($state)
                             ->locale('id')
                             ->translatedFormat('l, d F Y');
                     }),
@@ -219,5 +383,13 @@ class ProduksiResource extends Resource
             'create' => Pages\CreateProduksi::route('/create'),
             'edit' => Pages\EditProduksi::route('/{record}/edit'),
         ];
+    }
+
+    public static function isNavigationItemActive(): bool
+    {
+        $routeName = request()->route()?->getName();
+
+        return str_contains($routeName, 'produks') // route produksi
+            || str_contains($routeName, 'produks'); // route produk (ganti sesuai nama)
     }
 }

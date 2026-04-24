@@ -28,4 +28,8 @@ class Produk extends Model
     {
         return $this->hasMany(ReturDetail::class);
     }
+    public function resep()
+    {
+        return $this->hasMany(Resep::class);
+    }
 }

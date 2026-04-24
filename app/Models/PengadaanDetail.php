@@ -25,17 +25,17 @@ class PengadaanDetail extends Model
     {
         return $this->belongsTo(BahanBaku::class);
     }
-    protected static function booted()
-    {
-        static::saving(function ($detail) {
+    // protected static function booted()
+    // {
+    //     static::saving(function ($detail) {
 
-            $kg = $detail->jumlah; // input dari form (kg)
+    //         $kg = $detail->jumlah; // input dari form (kg)
 
-            // simpan ke database dalam gram
-            $detail->jumlah = $kg * 1000;
+    //         // simpan ke database dalam gram
+    //         $detail->jumlah = $kg * 1000;
 
-            // hitung subtotal pakai kg
-            $detail->subtotal = $kg * $detail->harga;
-        });
-    }
+    //         // hitung subtotal pakai kg
+    //         $detail->subtotal = $kg * $detail->harga;
+    //     });
+    // }
 }

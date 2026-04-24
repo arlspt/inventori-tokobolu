@@ -10,12 +10,15 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-// use Illuminate\Database\Eloquent\Builder;
-// use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 
 class ProdukResource extends Resource
 {
     protected static bool $shouldRegisterNavigation = false;
+    protected static ?string $navigationLabel = ' '; // kosongin biar tidak terlihat
     protected static ?string $model = Produk::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
@@ -24,17 +27,38 @@ class ProdukResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('nama_produk')
+                TextInput::make('nama_produk')
                     ->required()
                     ->maxLength(255),
 
-                Forms\Components\TextInput::make('harga')
+                TextInput::make('harga')
                     ->numeric()
                     ->required(),
 
-                Forms\Components\TextInput::make('stok')
-                    ->numeric()
-                    ->default(0)
+                Section::make('Resep')
+                    ->schema([
+
+                        Repeater::make('resep')
+                            ->relationship()
+                            ->label('Komposisi Bahan')
+                            ->schema([
+
+                                Select::make('bahan_baku_id')
+                                    ->relationship('bahanBaku', 'nama_bahan')
+                                    ->searchable()
+                                    ->preload()
+                                    ->required(),
+
+                                TextInput::make('jumlah')
+                                    ->numeric()
+                                    ->required()
+                                    ->suffix(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
+                                        'ml' => 'ml',
+                                        default => 'gram',
+                                    }),
+                            ])
+                            ->columns(2)
+                    ])
             ]);
     }
 
@@ -63,5 +87,10 @@ class ProdukResource extends Resource
             'create' => Pages\CreateProduk::route('/create'),
             'edit' => Pages\EditProduk::route('/{record}/edit'),
         ];
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Produksi';
     }
 }

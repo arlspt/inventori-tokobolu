@@ -8,16 +8,16 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable('produksi_detail')) {
-            Schema::table('produksi_detail', function (Blueprint $table) {
-                $table->integer('gagal')->default(0);
+        if (!Schema::hasTable('bahan_baku')) {
+            Schema::table('bahan_baku', function (Blueprint $table) {
+                $table->enum('satuan', ['gram', 'ml'])->default('gram');
             });
         }
     }
     public function down(): void
     {
-        Schema::table('produksi_detail', function (Blueprint $table) {
-            //
+        Schema::table('bahan_baku', function (Blueprint $table) {
+            $table->dropColumn('satuan');
         });
     }
 };
