@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+
 
 class PengadaanDetail extends Model
 {
@@ -25,17 +27,61 @@ class PengadaanDetail extends Model
     {
         return $this->belongsTo(BahanBaku::class);
     }
-    // protected static function booted()
-    // {
-    //     static::saving(function ($detail) {
 
-    //         $kg = $detail->jumlah; // input dari form (kg)
+    protected static function booted()
+    {
+        static::saving(function ($detail) {
+            $detail->subtotal = $detail->jumlah * $detail->harga;
+        });
 
-    //         // simpan ke database dalam gram
-    //         $detail->jumlah = $kg * 1000;
+        // CREATE
+        static::created(function ($detail) {
+            $bahan = \App\Models\BahanBaku::find($detail->bahan_baku_id);
+            if ($bahan) {
+                $bahan->increment('stok', $detail->jumlah);
+            }
+        });
 
-    //         // hitung subtotal pakai kg
-    //         $detail->subtotal = $kg * $detail->harga;
-    //     });
-    // }
+        // UPDATE
+        static::updating(function ($detail) {
+
+            $bahan = \App\Models\BahanBaku::find($detail->bahan_baku_id);
+            if (!$bahan) return;
+
+            $oldJumlah = $detail->getOriginal('jumlah');
+            $newJumlah = $detail->jumlah;
+
+            $selisih = $newJumlah - $oldJumlah;
+
+            $bahan->increment('stok', $selisih);
+
+            $bahanLamaId = $detail->getOriginal('bahan_baku_id');
+            $bahanBaruId = $detail->bahan_baku_id;
+
+            if ($bahanLamaId != $bahanBaruId) {
+
+                $bahanLama = \App\Models\BahanBaku::find($bahanLamaId);
+                if ($bahanLama) {
+                    $bahanLama->decrement('stok', $oldJumlah);
+                }
+
+                $bahanBaru = \App\Models\BahanBaku::find($bahanBaruId);
+                if ($bahanBaru) {
+                    $bahanBaru->increment('stok', $newJumlah);
+                }
+
+                return;
+            }
+        });
+
+        // DELETE 🔥
+        static::deleting(function ($detail) {
+
+            $bahan = \App\Models\BahanBaku::find($detail->bahan_baku_id);
+
+            if ($bahan) {
+                $bahan->decrement('stok', $detail->jumlah);
+            }
+        });
+    }
 }

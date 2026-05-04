@@ -87,12 +87,22 @@ class PengadaanResource extends Resource
                         Repeater::make('pengadaanDetail')
                             ->relationship()
                             ->columns(4)
-                            // ->itemLabel(fn($state) => 'Bahan')
                             ->deleteAction(
                                 fn($action) => $action
                                     ->label('Hapus')
                                     ->icon('heroicon-o-trash')
                                     ->color('danger')
+
+                                    ->before(function ($record) {
+
+                                        if (!$record) return;
+
+                                        $bahan = \App\Models\BahanBaku::find($record->bahan_baku_id);
+
+                                        if ($bahan) {
+                                            $bahan->decrement('stok', $record->jumlah);
+                                        }
+                                    })
                             )
                             ->schema([
                                 Select::make('bahan_baku_id')
@@ -324,7 +334,11 @@ class PengadaanResource extends Resource
                                 ]),
                         ]),
                     Tables\Actions\EditAction::make()->label('Ubah'),
-                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                    Tables\Actions\DeleteAction::make()
+                        ->modalHeading('Hapus Pengadaan Bahan Baku')
+                        ->modalDescription('Tindakan ini akan mengurangi stok bahan baku yang dihapus.')
+                        ->modalSubmitActionLabel('Ya, Hapus')
+                        ->modalCancelActionLabel('Batal'),
                 ])
                     ->color('black'),
             ])

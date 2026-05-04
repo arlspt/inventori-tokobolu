@@ -8,6 +8,8 @@ use App\Models\Distribusi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Filament\Actions\Action;
+use Illuminate\Support\Facades\DB;
+
 
 class CreateRetur extends CreateRecord
 {
@@ -71,15 +73,15 @@ class CreateRetur extends CreateRecord
         // isi semua field display
         $this->form->fill([
             'distribusi_id' => $distribusi->id,
-
+            'tanggal' => now()->toDateString(),
             'distribusi_info' =>
             $distribusi->reseller
                 ? $distribusi->reseller->nama_reseller
                 : $distribusi->tujuan_lain,
-
             'tanggal_distribusi' =>
             Carbon::parse($distribusi->tanggal)
                 ->translatedFormat('d F Y'),
+            'nomor_invoice' => $distribusi->nomor_invoice ?? '-',
         ]);
 
         // isi repeater
@@ -92,6 +94,7 @@ class CreateRetur extends CreateRecord
                     'jumlah' => 0,
                     'max_jumlah' => $max,
                     'alasan' => null,
+                    'kondisi' => '',
                 ];
             })->toArray()
         );
@@ -108,4 +111,60 @@ class CreateRetur extends CreateRecord
         return parent::getCancelFormAction()
             ->label('Batal');
     }
+    protected function afterCreate(): void
+    {
+        $retur = $this->record;
+
+        // refresh dari DB untuk pastikan detail sudah tersimpan
+        $retur->refresh();
+        $retur->load('detail');
+
+        foreach ($retur->detail as $detail) {
+
+            if ((int) $detail->jumlah <= 0) continue;
+
+            if ($detail->kondisi === 'baik') {
+                $produk = \App\Models\Produk::find($detail->produk_id);
+                if ($produk) {
+                    $produk->increment('stok', $detail->jumlah);
+                }
+            }
+        }
+    }
+
+    // protected function afterCreate(): void
+    // {
+    //     if ($this->hasProcessed) return;
+
+    //     $this->hasProcessed = true;
+
+    //     DB::transaction(function () {
+
+    //         $retur = $this->record;
+    //         $retur->load('detail');
+
+    //         foreach ($retur->detail as $detail) {
+
+    //             if ((int) $detail->jumlah <= 0) continue;
+
+    //             $dist = \App\Models\DistribusiDetail::where('distribusi_id', $retur->distribusi_id)
+    //                 ->where('produk_id', $detail->produk_id)
+    //                 ->lockForUpdate()
+    //                 ->first();
+
+    //             if ($dist) {
+    //                 $dist->decrement('jumlah', $detail->jumlah);
+    //             }
+
+    //             if ($detail->kondisi === 'baik') {
+
+    //                 $produk = \App\Models\Produk::find($detail->produk_id);
+
+    //                 if ($produk) {
+    //                     $produk->increment('stok', $detail->jumlah);
+    //                 }
+    //             }
+    //         }
+    //     });
+    // }
 }

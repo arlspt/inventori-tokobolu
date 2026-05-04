@@ -14,16 +14,12 @@ return new class extends Migration
                 $table->date('tanggal');
                 $table->foreignId('reseller_id')->constrained('reseller')->cascadeOnDelete();
                 $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-                $table->string('nomor_invoice')->nullable();
+                $table->string('nomor_invoice')->unique()->change();
                 $table->decimal('total', 10, 2)->default(0);
                 $table->timestamps();
             });
         }
     }
-
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('distribusi');

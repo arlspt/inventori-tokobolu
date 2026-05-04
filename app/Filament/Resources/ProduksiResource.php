@@ -22,7 +22,8 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Tables\Actions\ActionGroup;
 use Carbon\Carbon;
 use Filament\Forms\Components\Actions\Action;
-use Filament\Forms\Components\Hidden;
+use Illuminate\Validation\ValidationException;
+use Filament\Notifications\Notification;
 
 class ProduksiResource extends Resource
 {
@@ -56,46 +57,53 @@ class ProduksiResource extends Resource
                         Repeater::make('produksiDetail')
                             ->relationship()
                             ->label('Daftar Produksi')
-                            ->addActionLabel('Tambah Produk') // Ubah label tombol "Add Item" menjadi "Tambah Produk"
+                            ->addActionLabel('Tambah Varian') // Ubah label tombol "Add Item" menjadi "Tambah Produk"
                             ->columns(3)
                             ->schema([
                                 // PRODUK + TAMBAH LANGSUNG
                                 Select::make('produk_id')
-                                    ->label('Produk')
-                                    ->placeholder('Pilih Produk')
+                                    ->label('Varian')
+                                    ->placeholder('Pilih Varian')
                                     ->relationship('produk', 'nama_produk')
                                     ->searchable()
                                     ->preload()
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(function ($state, $set, $get) {
-                                        // default jumlah = 1
-                                        if (!$get('jumlah_produksi')) {
-                                            $set('jumlah_produksi', 1);
+                                    ->disableOptionWhen(function ($value, $get) {
+                                        $dipilih = collect($get('../../produksiDetail'))
+                                            ->pluck('produk_id')
+                                            ->filter()
+                                            ->values()
+                                            ->toArray();
+                                        $currentProdukId = $get('produk_id');
+                                        if ($value == $currentProdukId) return false; // row sendiri boleh
+                                        return in_array($value, $dipilih);
+                                    })
+                                    ->afterStateUpdated(function ($state, $set, $livewire) {
+                                        // kalau produk dikosongkan
+                                        if (!$state) {
+                                            // reset jumlah
+                                            $set('jumlah_produksi', null);
+                                            // 🔥 hapus error jumlah
+                                            $livewire->resetErrorBag('data.produksiDetail.*.jumlah_produksi');
                                         }
                                     })
-                                    // ->suffixAction(
-                                    //     \Filament\Forms\Components\Actions\Action::make('resep')
-                                    //         ->icon('heroicon-o-plus')
-                                    //         ->tooltip('Tambah Produk')
-                                    //         ->url('/admin/produks/create')
-                                    // )
                                     ->suffixAction(
                                         Action::make('kelolaProduk')
-                                            ->label('Kelola Produk')
+                                            ->label('Kelola Varian')
                                             ->icon('heroicon-o-cog-6-tooth')
-                                            ->modalHeading('Kelola Produk')
+                                            ->modalHeading('Kelola Varian')
                                             ->modalSubmitActionLabel('Simpan')
                                             ->form([
-
                                                 // MODE
                                                 Select::make('mode')
                                                     ->label('Aksi')
                                                     ->options([
-                                                        'tambah' => 'Tambah Produk',
-                                                        'edit' => 'Ubah Produk',
-                                                        'hapus' => 'Hapus Produk',
+                                                        'tambah' => 'Tambah Varian',
+                                                        'edit' => 'Ubah Varian',
+                                                        'hapus' => 'Hapus Varian',
                                                     ])
+                                                    ->default('tambah')
                                                     ->placeholder('Pilih Aksi')
                                                     ->native(false)
                                                     ->required()
@@ -116,13 +124,14 @@ class ProduksiResource extends Resource
 
                                                 // PILIH PRODUK (hanya untuk edit & hapus)
                                                 Select::make('produk_id')
-                                                    ->label('Pilih Produk')
+                                                    ->label('Pilih Varian')
                                                     ->options(\App\Models\Produk::pluck('nama_produk', 'id'))
                                                     ->searchable()
-                                                    ->placeholder('Pilih produk yang mau diubah')
+                                                    ->placeholder('Pilih varian yang mau diubah')
                                                     ->visible(fn($get) => in_array($get('mode'), ['edit', 'hapus']))
                                                     ->required(fn($get) => in_array($get('mode'), ['edit', 'hapus']))
                                                     ->live()
+                                                    ->reactive()
                                                     ->afterStateUpdated(function ($state, $set, $get) {
 
                                                         if (!$state || $get('mode') !== 'edit') return;
@@ -134,18 +143,18 @@ class ProduksiResource extends Resource
                                                         $set('nama_produk', $produk->nama_produk);
                                                         $set('harga', $produk->harga);
 
-                                                        // isi repeater resep
+                                                        // isi resep
                                                         $set('resep', $produk->resep->map(fn($r) => [
                                                             'bahan_baku_id' => $r->bahan_baku_id,
                                                             'jumlah' => $r->jumlah,
-                                                        ])->toArray());
+                                                        ])->values()->toArray());
                                                     }),
 
                                                 // NAMA PRODUK
                                                 TextInput::make('nama_produk')
-                                                    ->label('Nama Produk')
-                                                    ->visible(fn($get) => $get('mode') !== 'hapus')
-                                                    ->visible(fn($get) => $get('mode') !== 'edit')
+                                                    ->label('Nama Varian')
+                                                    ->dehydrated(true)
+                                                    ->visible(fn($get) => $get('mode') === 'tambah')
                                                     ->required(fn($get) => $get('mode') !== 'hapus')
                                                     ->afterStateHydrated(function ($set, $get) {
                                                         if ($get('produk_id')) {
@@ -170,6 +179,7 @@ class ProduksiResource extends Resource
                                                 Repeater::make('resep')
                                                     ->visible(fn($get) => $get('mode') !== 'hapus')
                                                     ->required()
+                                                    ->minItems(1)
                                                     ->reorderable(false)
                                                     ->schema([
                                                         Select::make('bahan_baku_id')
@@ -216,7 +226,6 @@ class ProduksiResource extends Resource
                                                         'nama_produk' => $data['nama_produk'],
                                                         'harga' => $data['harga'],
                                                     ]);
-
                                                     foreach ($data['resep'] as $item) {
                                                         \App\Models\Resep::create([
                                                             'produk_id' => $produk->id,
@@ -228,18 +237,14 @@ class ProduksiResource extends Resource
 
                                                 // 🔥 EDIT
                                                 if ($data['mode'] === 'edit') {
-
                                                     $produk = \App\Models\Produk::find($data['produk_id']);
                                                     if (!$produk) return;
-
                                                     $produk->update([
-                                                        'nama_produk' => $data['nama_produk'],
-                                                        'harga' => $data['harga'],
+                                                        'nama_produk' => $data['nama_produk'] ?? $produk->nama_produk,
+                                                        'harga' => $data['harga'] ?? $produk->harga,
                                                     ]);
-
                                                     \App\Models\Resep::where('produk_id', $produk->id)->delete();
-
-                                                    foreach ($data['resep'] as $item) {
+                                                    foreach ($data['resep'] ?? [] as $item) {
                                                         \App\Models\Resep::create([
                                                             'produk_id' => $produk->id,
                                                             'bahan_baku_id' => $item['bahan_baku_id'],
@@ -250,10 +255,8 @@ class ProduksiResource extends Resource
 
                                                 // 🔥 HAPUS
                                                 if ($data['mode'] === 'hapus') {
-
                                                     $produk = \App\Models\Produk::find($data['produk_id']);
                                                     if (!$produk) return;
-
                                                     \App\Models\Resep::where('produk_id', $produk->id)->delete();
                                                     $produk->delete();
                                                 }
@@ -266,17 +269,77 @@ class ProduksiResource extends Resource
                                     ->numeric()
                                     ->default(1)
                                     ->required()
-                                    ->live(),
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, $get, $livewire) {
+                                        if (!$get('produk_id')) {
+                                            $livewire->resetErrorBag('data.produksiDetail.*.jumlah_produksi');
+                                        }
+                                    })
+                                    ->rule(function ($get, $record) {
+                                        return function ($attribute, $value, $fail) use ($get, $record) {
+
+                                            // 🔥 kalau edit & jumlah tidak berubah → skip validasi
+                                            if ($record && $record->jumlah_produksi == $value) {
+                                                return;
+                                            }
+
+                                            $produk = \App\Models\Produk::with('resep')->find($get('produk_id'));
+
+                                            if (!$produk) return;
+
+                                            foreach ($produk->resep as $resep) {
+
+                                                $bahan = \App\Models\BahanBaku::find($resep->bahan_baku_id);
+
+                                                $total = $resep->jumlah * $value;
+
+                                                if ($bahan->stok < $total) {
+                                                    $fail("Stok tidak cukup: {$bahan->nama_bahan}");
+                                                    return;
+                                                }
+                                            }
+                                        };
+                                    }),
 
                                 // 🔥 GAGAL
                                 TextInput::make('gagal')
-                                    ->label('Produk Gagal')
+                                    ->label('Varian Gagal')
                                     ->numeric()
-                                    ->default(0),
+                                    ->default(0)
+                                    ->live() // ✅ tambahkan live
+                                    ->afterStateUpdated(function ($state, $get, $set) {
+
+                                        $jumlah = (int) $get('jumlah_produksi');
+                                        $gagal  = (int) $state;
+
+                                        if ($gagal > $jumlah) {
+                                            $set('gagal', $jumlah); // ✅ auto-reset ke maksimal
+
+                                            Notification::make()
+                                                ->title('Varian gagal melebihi jumlah produksi')
+                                                ->body("Maksimal varian gagal hanya $jumlah")
+                                                ->warning()
+                                                ->send();
+                                        }
+                                    })
+                                    ->rule(function ($get) {
+                                        return function ($attribute, $value, $fail) use ($get) {
+                                            $jumlah = (int) $get('jumlah_produksi');
+                                            if ((int) $value > $jumlah) {
+                                                $fail("Varian gagal tidak boleh melebihi jumlah produksi ($jumlah)");
+                                            }
+                                        };
+                                    }),
 
                             ])
                             ->reorderable(false)
-                            ->itemLabel(fn() => 'Produk'),
+                            ->itemLabel(fn() => 'Varian')
+                            ->addActionLabel('Tambah Varian') // Ubah label tombol "Add Item" menjadi "Tambah Produk"
+                            ->addAction(
+                                fn($action) => $action
+                                    ->label('Tambah Varian')
+                                    ->icon('heroicon-m-plus') // menambahkan icon di button
+                            ),
                     ]),
             ]);
     }
@@ -301,7 +364,7 @@ class ProduksiResource extends Resource
                     }),
 
                 TextColumn::make('produksiDetail')
-                    ->label('Jumlah Produk')
+                    ->label('Jumlah Varian')
                     ->getStateUsing(function ($record) {
 
                         return $record->produksiDetail->sum(function ($item) {
@@ -317,26 +380,6 @@ class ProduksiResource extends Resource
                 //
             ])
             ->actions([
-                // ViewAction::make('view')
-                //     ->modalHeading('Detail Produksi')
-                //     ->label('Detail')
-                //     ->color('info')
-                //     ->hiddenLabel() // atau ->label('')
-                //     ->infolist([
-                //         RepeatableEntry::make('produksiDetail')
-                //             ->label(fn($record) => Carbon::parse($record->tanggal)
-                //                 ->locale('id')
-                //                 ->translatedFormat('l, d F Y'))
-                //             ->schema([
-                //                 TextEntry::make('produk.nama_produk')
-                //                     ->label('Produk'),
-                //                 TextEntry::make('jumlah_produksi')
-                //                     ->label('Jumlah'),
-                //                 TextEntry::make('gagal')
-                //                     ->label('Produk Gagal'),
-                //             ])
-                //             ->columns(3),
-                //     ]),
                 ActionGroup::make([
                     ViewAction::make('view')
                         ->modalHeading('Detail Produksi')
@@ -349,16 +392,38 @@ class ProduksiResource extends Resource
                                     ->translatedFormat('l, d F Y'))
                                 ->schema([
                                     TextEntry::make('produk.nama_produk')
-                                        ->label('Produk'),
+                                        ->label('Varian'),
                                     TextEntry::make('jumlah_produksi')
                                         ->label('Jumlah'),
                                     TextEntry::make('gagal')
-                                        ->label('Produk Gagal'),
+                                        ->label('Varian Gagal'),
                                 ])
                                 ->columns(3),
                         ]),
                     Tables\Actions\EditAction::make()->label('Ubah'),
-                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                    Tables\Actions\DeleteAction::make()
+                        ->modalHeading('Hapus Produksi?')
+                        ->modalDescription("Tindakan ini akan mengembalikan semua bahan baku yang digunakan dan mengurangi stok produk.")
+                        ->modalSubmitActionLabel('Ya, Hapus')
+                        ->modalCancelActionLabel('Batal')
+                        ->before(function ($record) {
+                            foreach ($record->produksiDetail as $detail) {
+                                $produk = \App\Models\Produk::find($detail->produk_id);
+                                $produk->refresh();
+                                // 🔥 hitung stok setelah rollback produksi ini
+                                $stokSetelahRollback = $produk->stok - $detail->jumlah_produksi;
+                                if ($stokSetelahRollback < 0) {
+                                    Notification::make()
+                                        ->title('Gagal menghapus produksi')
+                                        ->body('Sebagian stok sudah digunakan, produksi tidak bisa dihapus.')
+                                        ->danger()
+                                        ->send();
+                                    throw ValidationException::withMessages([
+                                        'delete' => 'Stok tidak cukup untuk rollback.'
+                                    ]);
+                                }
+                            }
+                        }),
                 ])->color('black'), //ubah warna burger menu aksi
             ])
             ->actionsColumnLabel('Aksi')

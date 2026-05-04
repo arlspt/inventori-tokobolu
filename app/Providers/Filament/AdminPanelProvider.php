@@ -19,6 +19,8 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
+use App\Filament\Widgets\DashboardFilter;
+use App\Filament\Widgets\DashboardStats;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -39,8 +41,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                // Widgets\AccountWidget::class,
+                // Widgets\FilamentInfoWidget::class,
+                DashboardFilter::class,
+                DashboardStats::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -53,13 +57,6 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
-            // ->navigationItems([
-            //     \Filament\Navigation\NavigationItem::make('Dashboard')
-            //         ->icon('heroicon-o-chart-bar') // 🔥 ganti icon di sini
-            //         ->url(fn() => \Filament\Facades\Filament::getUrl())
-            //         ->sort(0),
-            // ])
-            // sidebar custom styles
             ->renderHook(
                 'panels::head.end',
                 fn() => '<style>

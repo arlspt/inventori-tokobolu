@@ -8,12 +8,13 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable('distribusi_detail')) {
-            Schema::table('distribusi_detail', function (Blueprint $table) {
-                $table->integer('jumlah_awal')->nullable();
-            });
-        }
+        Schema::table('distribusi_detail', function (Blueprint $table) {
+            if (!Schema::hasColumn('distribusi_detail', 'jumlah_awal')) {
+                $table->integer('jumlah_awal')->default(0)->after('jumlah');
+            }
+        });
     }
+
     public function down(): void
     {
         Schema::table('distribusi_detail', function (Blueprint $table) {

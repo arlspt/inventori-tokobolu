@@ -3,30 +3,30 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\DistribusiResource\Pages;
-// use App\Filament\Resources\DistribusiResource\RelationManagers;
 use App\Models\Distribusi;
-use Filament\Forms;
-use Filament\Forms\Form;
-use Filament\Resources\Resource;
+use Carbon\Carbon;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Form;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\Section as InfoSection;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
+use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Actions\ViewAction;
+use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
-use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Select;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Actions\ViewAction;
-use Filament\Tables\Actions\ActionGroup;
-use Filament\Infolists\Components\Section as InfoSection;
-use Filament\Infolists\Components\RepeatableEntry;
-use Filament\Infolists\Components\TextEntry;
-use Carbon\Carbon;
-use Filament\Tables\Actions\Action;
+use Illuminate\Validation\ValidationException;
 
 class DistribusiResource extends Resource
 {
@@ -45,64 +45,56 @@ class DistribusiResource extends Resource
                     ->columns(2)
                     ->schema([
 
+                        // KIRI
                         Grid::make(1)
                             ->schema([
                                 DatePicker::make('tanggal')
-                                    ->label('Tanggal')
                                     ->default(now())
                                     ->required(),
 
                                 Hidden::make('user_id')
                                     ->default(fn() => Auth::id()),
+                                Hidden::make('status_pembayaran')
+                                    ->default('belum_bayar'),
+                                Hidden::make('jumlah_awal'),
 
                                 Select::make('reseller_id')
-                                    ->label('Reseller')
-                                    ->relationship('reseller', 'nama_reseller')
-                                    ->searchable()
                                     ->placeholder('Pilih Reseller')
                                     ->preload()
-                                    ->reactive()
-                                    ->createOptionForm([
-                                        TextInput::make('nama_reseller')
-                                            ->label('Nama Reseller')
-                                            ->required(),
+                                    ->live()
+                                    ->relationship('reseller', 'nama_reseller')
+                                    ->searchable()
+                                    ->requiredWithout('tujuan_lain'),
 
-                                        TextInput::make('alamat')
-                                            ->label('Alamat')
-                                            ->required(),
-
-                                        TextInput::make('no_telp')
-                                            ->label('No. Telepon')
-                                            ->tel()
-                                            ->required(),
-                                    ])
-                                    ->createOptionAction(function ($action) {
-                                        return $action
-                                            ->label('Tambah Reseller')
-                                            ->modalHeading('Tambah Reseller')
-                                            ->modalSubmitActionLabel('Simpan')
-                                            ->modalCancelActionLabel('Batal');
-                                    })
-                                    ->requiredWithout('tujuan_lain')
-                                    ->dehydrated(),
                                 TextInput::make('tujuan_lain')
                                     ->label('Tujuan Lain')
-                                    ->placeholder('Isi jika bukan reseller')
-                                    ->requiredWithout('reseller_id')
-                                    ->visible(fn($get) => !$get('reseller_id'))
-                                    ->dehydrated(),
+                                    ->placeholder('Isi jika bukan untuk reseller')
+                                    ->visible(fn($get) => !$get('reseller_id')),
                             ])
                             ->columnSpan(1),
 
-                        Textarea::make('keterangan')
-                            ->label('Keterangan')
-                            ->placeholder('Masukkan keterangan tambahan (opsional)')
-                            ->rows(8)
+                        // 🔥 KANAN (INI KUNCINYA)
+                        Grid::make(1)
+                            ->schema([
+                                TextInput::make('nomor_invoice')
+                                    ->label('Nomor Invoice')
+                                    ->default(fn() => Distribusi::generateInvoice())
+                                    ->readOnly()
+                                    ->dehydrated(true)
+                                // ->visible(fn($livewire) => !($livewire instanceof CreateRecord))
+                                ,
+
+                                Textarea::make('keterangan')
+                                    ->label('Keterangan')
+                                    ->dehydrated(true)
+                                    ->rows(6),
+                            ])
                             ->columnSpan(1),
+
                     ]),
 
                 // SECTION DETAIL (INI REPEATER)
-                Section::make('Detail Produk')
+                Section::make('Detail Varian')
                     ->schema([
 
                         Repeater::make('detail') // nama relasi
@@ -111,18 +103,50 @@ class DistribusiResource extends Resource
                             ->schema([
 
                                 Select::make('produk_id')
-                                    ->label('Produk')
+                                    ->label('Varian')
                                     ->relationship('produk', 'nama_produk')
                                     ->searchable()
-                                    ->placeholder('Pilih Produk')
+                                    ->placeholder('Pilih Varian')
                                     ->preload()
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(function ($state, $set) {
-                                        // set default jumlah = 1
-                                        $set('jumlah', 1);
+                                    ->options(function ($get) {
+                                        // ✅ ambil semua produk_id yang sudah dipilih di repeater lain
+                                        $dipilih = collect($get('../../detail'))
+                                            ->pluck('produk_id')
+                                            ->filter()
+                                            ->values()
+                                            ->toArray();
 
-                                        // ambil harga dari produk
+                                        return \App\Models\Produk::all()
+                                            ->mapWithKeys(function ($produk) use ($dipilih) {
+                                                $label = $produk->nama_produk;
+
+                                                // ✅ tandai yang sudah dipilih sebagai disabled
+                                                if (in_array($produk->id, $dipilih)) {
+                                                    $label = $produk->nama_produk . ' (sudah dipilih)';
+                                                }
+
+                                                return [$produk->id => $label];
+                                            });
+                                    })
+                                    ->disableOptionWhen(function ($value, $get) {
+                                        // ✅ disable opsi yang sudah dipilih di row lain
+                                        $dipilih = collect($get('../../detail'))
+                                            ->pluck('produk_id')
+                                            ->filter()
+                                            ->values()
+                                            ->toArray();
+
+                                        // cek apakah value ini sudah dipakai, tapi JANGAN disable milik row sendiri
+                                        $currentProdukId = $get('produk_id');
+
+                                        if ($value == $currentProdukId) return false; // row sendiri boleh
+
+                                        return in_array($value, $dipilih);
+                                    })
+                                    ->afterStateUpdated(function ($state, $set) {
+                                        $set('jumlah', 1);
                                         $produk = \App\Models\Produk::find($state);
                                         if ($produk) {
                                             $set('harga', $produk->harga);
@@ -134,14 +158,58 @@ class DistribusiResource extends Resource
                                     ->prefix('Rp.')
                                     ->disabled()
                                     ->dehydrated(), // tetap disimpan ke DB
+
                                 TextInput::make('jumlah')
+                                    ->label('Jumlah')
                                     ->numeric()
+                                    ->minValue(1)
                                     ->required()
                                     ->live()
+                                    ->helperText(function ($get) {
+                                        $produk = \App\Models\Produk::find($get('produk_id'));
+                                        return $produk ? "Stok tersedia: {$produk->stok}" : null;
+                                    })
                                     ->afterStateUpdated(function ($state, $get, $set) {
+
+                                        $produkId = $get('produk_id');
+                                        if (!$produkId || !$state) return;
+
+                                        $produk = \App\Models\Produk::find($produkId);
+                                        if (!$produk) return;
+
+                                        if (!$state) return;
+                                        $set('jumlah_awal', $state);
+
+                                        // 🔥 VALIDASI REALTIME
+                                        if ($state > $produk->stok) {
+                                            $set('jumlah', $produk->stok);
+
+                                            Notification::make()
+                                                ->title('Stok tidak cukup')
+                                                ->body("Maksimal hanya {$produk->stok}")
+                                                ->danger()
+                                                ->send();
+                                        }
+
+                                        // 🔥 HITUNG SUBTOTAL
                                         $harga = $get('harga') ?? 0;
-                                        $set('subtotal', $harga * $state);
-                                    }),
+                                        $set('subtotal', $harga * ($get('jumlah') ?? 0));
+                                    })
+                                    ->rule(function ($get) {
+                                        return function ($attribute, $value, $fail) use ($get) {
+
+                                            $produk = \App\Models\Produk::find($get('produk_id'));
+
+                                            if ($produk && $value > $produk->stok) {
+                                                $fail("Stok tidak cukup. Tersedia: {$produk->stok}");
+                                            }
+                                        };
+                                    })
+                                // ->disabled(
+                                //     fn($get) =>
+                                //     optional(\App\Models\Produk::find($get('produk_id')))->stok == 0
+                                // )
+                                ,
                                 TextInput::make('subtotal')
                                     ->numeric()
                                     ->prefix('Rp.')
@@ -151,7 +219,7 @@ class DistribusiResource extends Resource
                             ->addAction(
                                 fn($action) =>
                                 $action
-                                    ->label('Tambah Produk')
+                                    ->label('Tambah Varian')
                                     ->icon('heroicon-m-plus')
                             )
                     ]),
@@ -162,14 +230,19 @@ class DistribusiResource extends Resource
     {
         return $table
             ->modifyQueryUsing(
-                fn($query) =>
-                $query->with(['detail.produk', 'reseller', 'user'])
+                fn($query) => $query
+                    ->with(['detail.produk', 'reseller', 'user'])
+                    ->orderByRaw("CASE WHEN status = 'dibatalkan' THEN 1 ELSE 0 END ASC")
+                    ->orderBy('created_at', 'desc')
             )
-
             ->recordUrl(null) // penting
             ->recordAction('view') // klik row -> modal
-
             ->columns([
+                TextColumn::make('nomor_invoice')
+                    ->label('No. Invoice')
+                    ->searchable()
+                    ->copyable(),
+
                 TextColumn::make('tanggal')
                     ->label('Tanggal')
                     ->formatStateUsing(
@@ -202,6 +275,45 @@ class DistribusiResource extends Resource
                         fn($state) =>
                         'Rp ' . number_format($state, 0, ',', '.')
                     ),
+
+                TextColumn::make('status_pembayaran')
+                    ->label('Pembayaran')
+                    ->badge()
+                    ->formatStateUsing(fn($state) => match ($state) {
+                        'belum_bayar' => 'Belum Bayar',
+                        'lunas' => 'Lunas',
+                    })
+                    ->color(fn($state) => match ($state) {
+                        'lunas' => 'success',
+                        'belum_bayar' => 'warning',
+                        default => 'gray',
+                    }),
+
+                TextColumn::make('status')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(fn($state) => match ($state) {
+                        'dikirim' => 'Dikirim',
+                        'dibatalkan' => 'Dibatalkan',
+                    })
+                    ->color(fn($state) => match ($state) {
+                        'dikirim' => 'success',
+                        'dibatalkan' => 'danger',
+                        default => 'gray',
+                    }),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Status')
+                    ->placeholder('Semua')
+                    ->options([
+                        'dikirim' => 'Dikirim',
+                        'dibatalkan' => 'Dibatalkan',
+                    ]),
+                Tables\Filters\SelectFilter::make('reseller_id')
+                    ->label('Reseller')
+                    ->relationship('reseller', 'nama_reseller')
+                    ->placeholder('Semua'),
             ])
 
             ->actions([
@@ -224,6 +336,7 @@ class DistribusiResource extends Resource
                                 )
                                 ->icon('heroicon-o-arrow-uturn-left')
                                 ->color('warning')
+                                ->visible(fn($record) => $record->status !== 'dibatalkan')
                                 ->action(function ($record) {
                                     $retur = \App\Models\Retur::where('distribusi_id', $record->id)
                                         ->whereNull('deleted_at')
@@ -242,13 +355,37 @@ class DistribusiResource extends Resource
                                             'distribusi_id' => $record->id
                                         ])
                                     );
+                                }),
+
+                            Action::make('lunas')
+                                ->label('Tandai Lunas')
+                                ->icon('heroicon-o-check-circle')
+                                ->color('success')
+                                ->visible(
+                                    fn($record) =>
+                                    $record->status !== 'dibatalkan' &&
+                                        $record->status_pembayaran !== 'lunas'
+                                )
+                                ->requiresConfirmation()
+                                ->action(function ($record) {
+
+                                    $record->update([
+                                        'status_pembayaran' => 'lunas'
+                                    ]);
+
+                                    Notification::make()
+                                        ->title('Pembayaran ditandai lunas')
+                                        ->success()
+                                        ->send();
                                 })
                         ])
                         ->infolist([
-
                             // SECTION DATA DISTRIBUSI
                             InfoSection::make('Data Distribusi')
                                 ->schema([
+                                    TextEntry::make('nomor_invoice')
+                                        ->label('No. Invoice'),
+
                                     TextEntry::make('tanggal')
                                         ->label('Tanggal')
                                         ->formatStateUsing(
@@ -267,6 +404,18 @@ class DistribusiResource extends Resource
                                                 : $record->tujuan_lain
                                         ),
 
+                                    TextEntry::make('status_pembayaran')
+                                        ->label('Status Pembayaran')
+                                        ->badge()
+                                        ->formatStateUsing(fn($state) => match ($state) {
+                                            'belum_bayar' => 'Belum Bayar',
+                                            'lunas' => 'Lunas',
+                                        })
+                                        ->color(fn($state) => match ($state) {
+                                            'lunas' => 'success',
+                                            'belum_bayar' => 'warning',
+                                        }),
+
                                     TextEntry::make('keterangan')
                                         ->label('Keterangan')
                                         ->placeholder('-'),
@@ -274,12 +423,13 @@ class DistribusiResource extends Resource
                                 ->columns(3),
 
                             // SECTION DETAIL PRODUK
-                            InfoSection::make('Detail Produk')
+                            InfoSection::make('Data Varian')->label('Data Varian')
                                 ->schema([
-                                    RepeatableEntry::make('detail')
+                                    RepeatableEntry::make('detail')->label('Detail Varian')
                                         ->schema([
                                             TextEntry::make('produk.nama_produk')
-                                                ->label('Produk'),
+                                                ->label('Varian')
+                                                ->columnSpan(2),
 
                                             TextEntry::make('jumlah')
                                                 ->label('Jumlah'),
@@ -298,7 +448,7 @@ class DistribusiResource extends Resource
                                                     'Rp ' . number_format($state, 0, ',', '.')
                                                 ),
                                         ])
-                                        ->columns(4),
+                                        ->columns(5),
                                 ]),
 
                             // SECTION TOTAL
@@ -318,8 +468,10 @@ class DistribusiResource extends Resource
                                         ->weight('bold'),
                                 ]),
                         ]),
-                    Tables\Actions\EditAction::make()->label('Ubah'),
-                    Tables\Actions\DeleteAction::make()->label('Hapus'),
+                    Tables\Actions\EditAction::make()
+                        ->label('Ubah')
+                        ->visible(fn($record) => $record->status !== 'dibatalkan'),
+
                     Action::make('retur')
                         ->label(
                             fn($record) =>
@@ -330,6 +482,7 @@ class DistribusiResource extends Resource
                                 : 'Buat Retur'
                         )->icon('heroicon-o-arrow-uturn-left')
                         ->color('warning')
+                        ->visible(fn($record) => $record->status !== 'dibatalkan')
                         ->url(function ($record) {
 
                             $retur = \App\Models\Retur::where('distribusi_id', $record->id)
@@ -347,7 +500,59 @@ class DistribusiResource extends Resource
                             return route('filament.admin.resources.returs.create', [
                                 'distribusi_id' => $record->id
                             ]);
-                        })
+                        }),
+                    Action::make('lunas')
+                        ->label('Tandai Lunas')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(
+                            fn($record) =>
+                            $record->status !== 'dibatalkan' &&
+                                $record->status_pembayaran !== 'lunas'
+                        )
+                        ->requiresConfirmation()
+                        ->action(function ($record) {
+
+                            $record->update([
+                                'status_pembayaran' => 'lunas'
+                            ]);
+
+                            Notification::make()
+                                ->title('Pembayaran ditandai lunas')
+                                ->success()
+                                ->send();
+                        }),
+
+                    Action::make('batalkan')
+                        ->label('Batalkan')
+                        ->color('danger')
+                        ->icon('heroicon-o-x-circle')
+                        ->visible(fn($record) => $record->status !== 'dibatalkan')
+                        ->requiresConfirmation()
+                        ->modalHeading('Batalkan?')
+                        ->modalDescription('Tindakan ini akan membatalkan distribusi dan mengembalikan stok produk. Pastikan tidak ada retur yang terkait dengan distribusi ini sebelum membatalkannya.')
+                        ->modalSubmitActionLabel('Ya, Batalkan')
+                        ->modalCancelActionLabel('Tidak')
+                        ->action(function ($record) {
+                            $adaRetur = \App\Models\Retur::where('distribusi_id', $record->id)
+                                ->whereNull('deleted_at')
+                                ->exists();
+                            if ($adaRetur) {
+                                Notification::make()
+                                    ->title('Tidak bisa dibatalkan')
+                                    ->body('Distribusi sudah memiliki retur.')
+                                    ->danger()
+                                    ->send();
+                                throw ValidationException::withMessages([
+                                    'batalkan' => 'Distribusi sudah memiliki retur.'
+                                ]);
+                            }
+                            $record->batalkan();
+                            Notification::make()
+                                ->title('Distribusi berhasil dibatalkan')
+                                ->success()
+                                ->send();
+                        }),
                 ])->color('black'),
             ])
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+// use Illuminate\Support\Facades\DB;
 
 class ReturDetail extends Model
 {
@@ -11,7 +12,9 @@ class ReturDetail extends Model
         'retur_id',
         'produk_id',
         'jumlah',
-        'alasan'
+        'alasan',
+        'alasan_lain',
+        'kondisi',
     ];
 
     public function retur()
@@ -22,75 +25,5 @@ class ReturDetail extends Model
     public function produk()
     {
         return $this->belongsTo(Produk::class);
-    }
-    protected static function booted()
-    {
-        // saat create retur detail
-        static::created(function ($detail) {
-
-            $retur = $detail->retur;
-
-            $distribusiDetail = \App\Models\DistribusiDetail::where('distribusi_id', $retur->distribusi_id)
-                ->where('produk_id', $detail->produk_id)
-                ->first();
-
-            if ($distribusiDetail) {
-                $distribusiDetail->jumlah -= $detail->jumlah;
-
-                if ($distribusiDetail->jumlah < 0) {
-                    $distribusiDetail->jumlah = 0;
-                }
-
-                $distribusiDetail->save();
-            }
-        });
-
-        // saat delete retur detail
-        static::deleted(function ($detail) {
-
-            $retur = $detail->retur;
-
-            $distribusiDetail = \App\Models\DistribusiDetail::where('distribusi_id', $retur->distribusi_id)
-                ->where('produk_id', $detail->produk_id)
-                ->first();
-
-            if ($distribusiDetail) {
-                $distribusiDetail->jumlah += $detail->jumlah;
-                $distribusiDetail->save();
-            }
-        });
-
-        static::updating(function ($detail) {
-
-            $retur = $detail->retur;
-
-            $distribusiDetail = \App\Models\DistribusiDetail::where('distribusi_id', $retur->distribusi_id)
-                ->where('produk_id', $detail->produk_id)
-                ->first();
-
-            if ($distribusiDetail) {
-                // balikin jumlah lama dulu
-                $distribusiDetail->jumlah += $detail->getOriginal('jumlah');
-                $distribusiDetail->save();
-            }
-        });
-
-        static::updated(function ($detail) {
-            $retur = $detail->retur;
-            $distribusiDetail = \App\Models\DistribusiDetail::where('distribusi_id', $retur->distribusi_id)
-                ->where('produk_id', $detail->produk_id)
-                ->first();
-
-            if ($distribusiDetail) {
-                // kurangi jumlah baru
-                $distribusiDetail->jumlah -= $detail->jumlah;
-
-                if ($distribusiDetail->jumlah < 0) {
-                    $distribusiDetail->jumlah = 0;
-                }
-
-                $distribusiDetail->save();
-            }
-        });
     }
 }

@@ -9,8 +9,8 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Section as FormSection;
+use Filament\Infolists\Components\Section as InfoSection;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Repeater;
@@ -20,6 +20,11 @@ use Filament\Forms\Components\Hidden;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Forms\Components\Grid;
 use Carbon\Carbon;
+use Filament\Notifications\Notification;
+use Filament\Forms\Components\DatePicker;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\RepeatableEntry;
+
 
 class ReturResource extends Resource
 {
@@ -33,32 +38,64 @@ class ReturResource extends Resource
     {
         return $form
             ->schema([
-
                 // DATA DISTRIBUSI (HARUS DI ATAS)
-                Section::make('Data Distribusi')
+                FormSection::make('Data Distribusi')
                     ->schema([
                         TextInput::make('distribusi_info')
                             ->label('Tujuan Distribusi')
-                            ->disabled()
+                            ->readOnly()
                             ->dehydrated(false),
 
                         TextInput::make('tanggal_distribusi')
                             ->label('Tanggal Distribusi')
-                            ->disabled()
+                            ->readOnly()
                             ->dehydrated(false),
+
+                        TextInput::make('nomor_invoice')
+                            ->label('Nomor Invoice Distribusi')
+                            ->readOnly()
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function ($set, $get) {
+                                $distribusiId = $get('distribusi_id');
+                                if (!$distribusiId) {
+                                    $set('nomor_invoice_distribusi', '-');
+                                    return;
+                                }
+                                $distribusi = \App\Models\Distribusi::find($distribusiId);
+                                $set(
+                                    'nomor_invoice_distribusi',
+                                    $distribusi?->nomor_invoice ?? '-'
+                                );
+                            }),
                     ])
-                    ->columns(2),
+                    ->columns(3),
 
                 // DATA RETUR
-                Section::make('Data Retur')
+                FormSection::make('Data Retur')
                     ->columns(2)
                     ->schema([
                         DatePicker::make('tanggal')
                             ->label('Tanggal Retur')
-                            ->displayFormat('d F Y')
-                            ->format('Y-m-d')
                             ->default(now())
+                            ->readOnly()
+                            ->dehydrated(true)
                             ->required(),
+                        TextInput::make('nomor_retur')
+                            ->label('Nomor Retur')
+                            ->readOnly()
+                            ->dehydrated(false)
+                            ->afterStateHydrated(function ($set) {
+                                $year = now()->year;
+                                $last = Retur::withTrashed()
+                                    ->whereYear('created_at', $year)
+                                    ->orderBy('id', 'desc')
+                                    ->first();
+                                $number = $last
+                                    ? (int) substr($last->nomor_retur, -4) + 1
+                                    : 1;
+                                $preview = 'RET-' . $year . '-' . str_pad($number, 4, '0', STR_PAD_LEFT);
+                                $set('nomor_retur', $preview);
+                            }),
 
                         Hidden::make('distribusi_id'),
 
@@ -70,10 +107,10 @@ class ReturResource extends Resource
                     ]),
 
                 // DETAIL RETUR
-                Section::make('Detail Retur')
+                FormSection::make('Detail Retur')
                     ->schema([
                         Repeater::make('detail')
-                            ->label('Daftar Produk Retur')
+                            ->label('Daftar Varian Retur')
                             ->relationship()
                             ->addable(false)
                             ->deletable(false)
@@ -91,14 +128,15 @@ class ReturResource extends Resource
                                             ->disabled()
                                             ->dehydrated()
                                             ->native(false)
-                                            ->label('Produk'),
+                                            ->label('Varian'),
 
                                         TextInput::make('jumlah')
                                             ->label('Jumlah Retur')
                                             ->numeric()
+                                            ->minValue(0)
                                             ->required()
-                                            ->live(onBlur: false)
-
+                                            ->reactive()
+                                            ->live()
                                             ->helperText(function ($get) {
 
                                                 $produkId = $get('produk_id');
@@ -112,7 +150,8 @@ class ReturResource extends Resource
 
                                                 if (!$dist) return null;
 
-                                                $jumlahAwal = $dist->jumlah_awal;
+                                                // 🔥 pakai jumlah_awal
+                                                $jumlahAwal = $dist->jumlah_awal ?? $dist->jumlah;
 
                                                 $totalRetur = \App\Models\ReturDetail::whereHas('retur', function ($q) use ($distribusiId) {
                                                     $q->where('distribusi_id', $distribusiId)
@@ -121,10 +160,18 @@ class ReturResource extends Resource
                                                     ->where('produk_id', $produkId)
                                                     ->sum('jumlah');
 
-                                                // sisa retur
+                                                // 🔥 EDIT MODE FIX (BIAR GAK MENTOK 0)
+                                                $currentId = $get('id');
+
+                                                if ($currentId) {
+                                                    $existing = \App\Models\ReturDetail::find($currentId);
+                                                    if ($existing) {
+                                                        $totalRetur -= $existing->jumlah;
+                                                    }
+                                                }
+
                                                 $max = $jumlahAwal - $totalRetur;
 
-                                                // safety
                                                 if ($max < 0) $max = 0;
 
                                                 return "Maksimal retur: $max";
@@ -137,13 +184,13 @@ class ReturResource extends Resource
 
                                                     if (!$produkId || !$distribusiId) return;
 
-                                                    $distribusiDetail = \App\Models\DistribusiDetail::where('distribusi_id', $distribusiId)
+                                                    $dist = \App\Models\DistribusiDetail::where('distribusi_id', $distribusiId)
                                                         ->where('produk_id', $produkId)
                                                         ->first();
 
-                                                    if (!$distribusiDetail) return;
+                                                    if (!$dist) return;
 
-                                                    $jumlahAwal = $distribusiDetail->jumlah_awal;
+                                                    $jumlahAwal = $dist->jumlah_awal ?? $dist->jumlah;
 
                                                     $totalRetur = \App\Models\ReturDetail::whereHas('retur', function ($q) use ($distribusiId) {
                                                         $q->where('distribusi_id', $distribusiId)
@@ -152,9 +199,19 @@ class ReturResource extends Resource
                                                         ->where('produk_id', $produkId)
                                                         ->sum('jumlah');
 
-                                                    $current = $get('jumlah') ?? 0;
+                                                    // 🔥 EDIT MODE FIX
+                                                    $currentId = $get('id');
 
-                                                    $max = $jumlahAwal - ($totalRetur - $current);
+                                                    if ($currentId) {
+                                                        $existing = \App\Models\ReturDetail::find($currentId);
+                                                        if ($existing) {
+                                                            $totalRetur -= $existing->jumlah;
+                                                        }
+                                                    }
+
+                                                    $max = $jumlahAwal - $totalRetur;
+
+                                                    if ($max < 0) $max = 0;
 
                                                     if ($value > $max) {
                                                         $fail("Maksimal retur: $max");
@@ -163,37 +220,53 @@ class ReturResource extends Resource
                                             })
                                             ->afterStateUpdated(function ($state, $get, $set) {
 
-                                                $produkId = $get('produk_id');
+                                                $produkId    = $get('produk_id');
                                                 $distribusiId = $get('../../distribusi_id');
 
                                                 if (!$produkId || !$distribusiId) return;
 
-                                                $distribusi = \App\Models\Distribusi::with('detail')
-                                                    ->find($distribusiId);
-
-                                                if (!$distribusi) return;
-
-                                                $jumlahDistribusi = $distribusi->detail
+                                                $dist = \App\Models\DistribusiDetail::where('distribusi_id', $distribusiId)
                                                     ->where('produk_id', $produkId)
-                                                    ->first()?->jumlah ?? 0;
+                                                    ->first();
 
-                                                $sudahRetur = \App\Models\ReturDetail::whereHas('retur', function ($q) use ($distribusiId) {
-                                                    $q->where('distribusi_id', $distribusiId);
+                                                if (!$dist) return;
+
+                                                $jumlahAwal = $dist->jumlah_awal ?? $dist->jumlah;
+
+                                                $totalRetur = \App\Models\ReturDetail::whereHas('retur', function ($q) use ($distribusiId) {
+                                                    $q->where('distribusi_id', $distribusiId)
+                                                        ->whereNull('deleted_at');
                                                 })
                                                     ->where('produk_id', $produkId)
                                                     ->sum('jumlah');
 
-                                                $max = $jumlahDistribusi - $sudahRetur;
+                                                // ✅ kurangi jumlah existing retur saat ini (edit mode)
+                                                $currentId = $get('id');
+                                                if ($currentId) {
+                                                    $existing = \App\Models\ReturDetail::find($currentId);
+                                                    if ($existing) {
+                                                        $totalRetur -= $existing->jumlah;
+                                                    }
+                                                }
 
-                                                if ($state > $max) {
-                                                    $set('jumlah', $max);
+                                                $max = $jumlahAwal - $totalRetur;
+                                                if ($max < 0) $max = 0;
+
+                                                if ((int) $state > $max) {
+                                                    $set('jumlah', $max); // ✅ auto-reset ke maksimal
+
+                                                    Notification::make()
+                                                        ->title('Jumlah melebihi batas')
+                                                        ->body("Maksimal retur hanya $max")
+                                                        ->warning()
+                                                        ->send();
                                                 }
                                             })
                                     ])
                                     ->columnSpan(1), // WAJIB
 
                                 // KOLOM KANAN
-                                Grid::make(1)
+                                Grid::make(2)
                                     ->schema([
 
                                         Select::make('alasan')
@@ -209,7 +282,23 @@ class ReturResource extends Resource
                                             ->native(false)
                                             ->required(fn($get) => ($get('jumlah') ?? 0) > 0)
                                             ->visible(fn($get) => ($get('jumlah') ?? 0) > 0)
+                                            ->dehydrated(fn($get) => ($get('jumlah') ?? 0) > 0)
                                             ->reactive(),
+
+                                        Select::make('kondisi')
+                                            ->label('Kondisi')
+                                            ->options([
+                                                'baik' => 'Baik (Layak Jual)',
+                                                'rusak' => 'Rusak (Tidak Layak)',
+                                            ])
+                                            ->placeholder('Pilih kondisi')
+                                            ->native(false)
+                                            ->required()
+                                            ->default('rusak')
+                                            // ->required(fn($get) => ($get('jumlah') ?? 0) > 0)
+                                            ->visible(fn($get) => ($get('jumlah') ?? 0) > 0)
+                                        // ->dehydrated(fn($get) => ($get('jumlah') ?? 0) > 0)
+                                        ,
 
                                         Textarea::make('alasan_lain')
                                             ->label('Alasan Lainnya')
@@ -268,6 +357,10 @@ class ReturResource extends Resource
             ->recordUrl(null)
             ->recordAction('view')
             ->columns([
+                TextColumn::make('nomor_retur')
+                    ->label('No. Retur')
+                    ->searchable()
+                    ->copyable(),
 
                 TextColumn::make('tanggal')
                     ->label('Tanggal')
@@ -317,9 +410,11 @@ class ReturResource extends Resource
                         ->label('View')
                         ->color('info')
                         ->infolist([
-                            \Filament\Infolists\Components\Section::make('Data Distribusi')
+                            InfoSection::make('Data Distribusi')
                                 ->schema([
-                                    \Filament\Infolists\Components\TextEntry::make('distribusi_id')
+                                    TextEntry::make('distribusi.nomor_invoice')
+                                        ->label('No. Invoice Distribusi'),
+                                    TextEntry::make('distribusi_id')
                                         ->label('Distribusi')
                                         ->formatStateUsing(
                                             fn($record) =>
@@ -328,28 +423,32 @@ class ReturResource extends Resource
                                                 : $record->distribusi->tujuan_lain
                                         ),
 
-                                    \Filament\Infolists\Components\TextEntry::make('distribusi.tanggal')
+                                    TextEntry::make('distribusi.tanggal')
                                         ->label('Tanggal Distribusi')
                                         ->date('d F Y'),
-                                ])->columns(2),
+                                ])->columns(3),
 
-                            \Filament\Infolists\Components\Section::make('Data Retur')
+                            InfoSection::make('Data Retur')
                                 ->schema([
-                                    \Filament\Infolists\Components\TextEntry::make('tanggal')
+                                    TextEntry::make('nomor_retur')
+                                        ->label('Nomor Retur'),
+
+                                    TextEntry::make('tanggal')
                                         ->label('Tanggal Retur')
                                         ->date('d F Y'),
 
-                                    \Filament\Infolists\Components\TextEntry::make('keterangan')
-                                        ->label('Keterangan'),
-                                ])->columns(2),
+                                    TextEntry::make('keterangan')
+                                        ->label('Keterangan')
+                                        ->placeholder('-'),
+                                ])->columns(3),
 
-                            \Filament\Infolists\Components\Section::make('Detail Retur')
+                            InfoSection::make('Daftar Varian Retur')
                                 ->schema([
-                                    \Filament\Infolists\Components\RepeatableEntry::make('detail')->label('Daftar Produk Retur')
+                                    RepeatableEntry::make('detail')->label('Detail Varian Retur')
                                         ->schema([
-                                            \Filament\Infolists\Components\TextEntry::make('produk.nama_produk'),
-                                            \Filament\Infolists\Components\TextEntry::make('jumlah')->label('Jumlah Retur'),
-                                            \Filament\Infolists\Components\TextEntry::make('alasan')
+                                            TextEntry::make('produk.nama_produk')->columnSpan(2)->label('Varian'),
+                                            TextEntry::make('jumlah')->label('Jumlah Retur'),
+                                            TextEntry::make('alasan')
                                                 ->formatStateUsing(fn($state) => match ($state) {
                                                     'rusak' => 'Barang Rusak',
                                                     'expired' => 'Expired',
@@ -357,8 +456,21 @@ class ReturResource extends Resource
                                                     'retur_pelanggan' => 'Retur Pelanggan',
                                                     default => $state,
                                                 }),
-                                        ])->columns(3)
+                                            TextEntry::make('kondisi')
+                                                ->label('Kondisi')
+                                                ->badge()
+                                                ->color(fn($state) => match ($state) {
+                                                    'baik' => 'success',
+                                                    'rusak' => 'danger',
+                                                })
+                                                ->formatStateUsing(fn($state) => match ($state) {
+                                                    'baik' => 'Baik',
+                                                    'rusak' => 'Rusak',
+                                                    default => '-',
+                                                }),
+                                        ])->columns(5)
                                 ]),
+
                         ]),
 
                     Tables\Actions\EditAction::make()
@@ -369,6 +481,10 @@ class ReturResource extends Resource
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
                         ->requiresConfirmation()
+                        ->modalHeading('Batal Retur?')
+                        ->modalDescription('Tindakan ini akan membatalkan retur dan mengembalikan stok produk ke distribusi. Pastikan tidak ada retur yang terkait dengan distribusi ini sebelum membatalkannya.')
+                        ->modalSubmitActionLabel('Ya, Batalkan')
+                        ->modalCancelActionLabel('Tidak')
                         ->action(fn($record) => $record->delete())
                         ->visible(fn($record) => $record->deleted_at === null),
                 ])->color('black'),

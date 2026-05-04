@@ -26,7 +26,7 @@ class EditDistribusi extends EditRecord
     protected function getCancelFormAction(): Action
     {
         return parent::getCancelFormAction()
-            ->label('Batal');
+            ->label('Kembali');
     }
     public function getBreadcrumb(): string
     {

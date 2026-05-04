@@ -11,6 +11,7 @@ class Pengadaan extends Model
     protected $fillable = [
         'tanggal',
         'user_id',
+        'supplier_id',
         'keterangan'
     ];
 
@@ -27,14 +28,21 @@ class Pengadaan extends Model
     {
         return $this->belongsTo(Supplier::class);
     }
-    // protected static function booted()
-    // {
-    //     static::creating(function ($pengadaan) {
-    //         $today = now()->format('Ymd');
+    protected static function booted()
+    {
+        static::deleting(function ($pengadaan) {
 
-    //         $count = self::whereDate('created_at', now()->toDateString())->count() + 1;
+            // 🔥 WAJIB: load relasi dulu
+            $pengadaan->load('pengadaanDetail');
 
-    //         $pengadaan->kode_pengadaan = 'PGD-' . $today . '-' . str_pad($count, 3, '0', STR_PAD_LEFT);
-    //     });
-    // }
+            foreach ($pengadaan->pengadaanDetail as $detail) {
+
+                $bahan = \App\Models\BahanBaku::find($detail->bahan_baku_id);
+
+                if ($bahan) {
+                    $bahan->decrement('stok', $detail->jumlah);
+                }
+            }
+        });
+    }
 }

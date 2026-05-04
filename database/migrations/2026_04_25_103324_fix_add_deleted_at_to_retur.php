@@ -8,16 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable('retur')) {
-            Schema::table('retur', function (Blueprint $table) {
-                $table->softDeletes(); //
-            });
-        }
+        Schema::table('retur', function (Blueprint $table) {
+            $table->softDeletes();
+        });
     }
     public function down(): void
     {
         Schema::table('retur', function (Blueprint $table) {
-            $table->dropSoftDeletes(); //
+            $table->dropSoftDeletes();
         });
     }
 };

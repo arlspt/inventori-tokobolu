@@ -8,15 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable('produksi_detail')) {
-            Schema::table('produksi_detail', function (Blueprint $table) {
-                $table->integer('gagal')->default(0);
+        if (!Schema::hasTable('distribusi')) {
+            Schema::table('distribusi', function (Blueprint $table) {
+                $table->string('tujuan_lain')->nullable()->after('reseller_id');
             });
         }
     }
     public function down(): void
     {
-        Schema::table('produksi_detail', function (Blueprint $table) {
+        Schema::table('distribusi', function (Blueprint $table) {
             //
         });
     }
