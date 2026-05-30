@@ -386,19 +386,15 @@ class ProduksiResource extends Resource
                         ->label('Detail')
                         ->color('info')
                         ->infolist([
-                            RepeatableEntry::make('produksiDetail')
-                                ->label(fn($record) => Carbon::parse($record->tanggal)
+                            \Filament\Infolists\Components\Section::make(
+                                fn($record) => Carbon::parse($record->tanggal)
                                     ->locale('id')
-                                    ->translatedFormat('l, d F Y'))
+                                    ->translatedFormat('l, d F Y')
+                            )
                                 ->schema([
-                                    TextEntry::make('produk.nama_produk')
-                                        ->label('Varian'),
-                                    TextEntry::make('jumlah_produksi')
-                                        ->label('Jumlah'),
-                                    TextEntry::make('gagal')
-                                        ->label('Varian Gagal'),
-                                ])
-                                ->columns(3),
+                                    \Filament\Infolists\Components\View::make('infolists.components.produksi-detail-table')
+                                        ->viewData(fn($record) => ['detail' => $record->produksiDetail->load('produk')])
+                                ]),
                         ]),
                     Tables\Actions\EditAction::make()->label('Ubah'),
                     Tables\Actions\DeleteAction::make()

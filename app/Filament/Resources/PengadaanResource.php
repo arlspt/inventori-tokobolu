@@ -141,26 +141,6 @@ class PengadaanResource extends Resource
                                     })
                                     ->required(),
 
-                                TextInput::make('harga')
-                                    ->label(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
-                                        'ml' => 'Harga / ml',
-                                        default => 'Harga / gram',
-                                    })
-                                    ->numeric()
-                                    ->prefix('Rp.')
-                                    ->required()
-                                    ->live()
-                                    ->afterStateUpdated(function ($get, $set) {
-                                        $harga = $get('harga') ?? 0;
-                                        $jumlahKg = $get('jumlah') ?? 0;
-                                        $jumlahGram = $jumlahKg * 1000;
-                                        $set('subtotal', $harga * $jumlahGram);
-                                    })
-                                    ->formatStateUsing(
-                                        fn($state) =>
-                                        number_format($state, 0, ',', '.')
-                                    ),
-
                                 TextInput::make('jumlah')
                                     ->label(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
                                         'ml' => 'Jumlah / ml',
@@ -184,11 +164,32 @@ class PengadaanResource extends Resource
                                     ->dehydrateStateUsing(fn($state) => (int) round($state * 1000))
 
                                     ->afterStateUpdated(function ($get, $set) {
-                                        $harga = $get('harga') ?? 0;
-                                        $jumlahKg = $get('jumlah') ?? 0;
+                                        $harga     = (float) str_replace(['.', ','], ['', '.'], $get('harga') ?? 0);
+                                        $jumlahKg  = (float) ($get('jumlah') ?? 0);
                                         $jumlahGram = $jumlahKg * 1000;
                                         $set('subtotal', $harga * $jumlahGram);
                                     }),
+
+
+                                TextInput::make('harga')
+                                    ->label(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
+                                        'ml' => 'Harga / ml',
+                                        default => 'Harga / gram',
+                                    })
+                                    ->numeric()
+                                    ->prefix('Rp.')
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function ($get, $set) {
+                                        $harga      = (float) str_replace(['.', ','], ['', '.'], $get('harga') ?? 0);
+                                        $jumlahKg   = (float) ($get('jumlah') ?? 0);
+                                        $jumlahGram = $jumlahKg * 1000;
+                                        $set('subtotal', $harga * $jumlahGram);
+                                    })
+                                    ->formatStateUsing(
+                                        fn($state) =>
+                                        number_format($state, 0, ',', '.')
+                                    ),
 
                                 TextInput::make('subtotal')
                                     ->label('Subtotal')
@@ -200,12 +201,10 @@ class PengadaanResource extends Resource
                                         number_format($state, 0, ',', '.')
                                     )
                                     ->afterStateUpdated(function ($get, $set) {
-                                        $harga = $get('harga') ?? 0;
-                                        $jumlah = $get('jumlah') ?? 0;
-
-                                        // jumlah masih dalam KG di form
-                                        $jumlahGram = $jumlah * 1000;
-
+                                        // ✅ bersihkan format angka sebelum kalkulasi
+                                        $harga      = (float) str_replace(['.', ','], ['', '.'], $get('harga') ?? 0);
+                                        $jumlahKg   = (float) ($get('jumlah') ?? 0);
+                                        $jumlahGram = $jumlahKg * 1000;
                                         $set('subtotal', $harga * $jumlahGram);
                                     }),
 
@@ -223,8 +222,12 @@ class PengadaanResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn($query) => $query->with(['pengadaanDetail.bahanBaku', 'supplier', 'user']))
-
+            ->modifyQueryUsing(
+                fn($query) => $query
+                    ->with(['pengadaanDetail.bahanBaku', 'supplier', 'user'])
+                    ->orderBy('tanggal', 'desc')        // terbaru di atas
+                    ->orderBy('created_at', 'desc')     // tiebreaker
+            )
             ->recordUrl(null)
             ->recordAction('view') // klik row -> modal
 
@@ -291,47 +294,10 @@ class PengadaanResource extends Resource
                             // SECTION DETAIL BAHAN
                             InfoSection::make('Detail Bahan')
                                 ->schema([
-                                    RepeatableEntry::make('pengadaanDetail')
-                                        ->schema([
-                                            TextEntry::make('bahanBaku.nama_bahan')
-                                                ->label('Bahan'),
-
-                                            TextEntry::make('jumlah')
-                                                ->label('Jumlah (gram)'),
-
-                                            TextEntry::make('harga')
-                                                ->label('Harga')
-                                                ->formatStateUsing(
-                                                    fn($state) =>
-                                                    'Rp. ' . number_format($state, 0, ',', '.')
-                                                ),
-
-                                            TextEntry::make('subtotal')
-                                                ->label('Subtotal')
-                                                ->formatStateUsing(
-                                                    fn($state) =>
-                                                    'Rp. ' . number_format($state, 0, ',', '.')
-                                                ),
-                                        ])
-                                        ->columns(4),
+                                    \Filament\Infolists\Components\View::make('infolists.components.pengadaan-detail-table')
+                                        ->viewData(fn($record) => ['detail' => $record->pengadaanDetail->load('bahanBaku')])
                                 ]),
 
-                            // SECTION TOTAL
-                            InfoSection::make('Total')
-                                ->schema([
-                                    TextEntry::make('total')
-                                        ->label('Total Keseluruhan')
-                                        ->getStateUsing(
-                                            fn($record) =>
-                                            'Rp. ' . number_format(
-                                                $record->pengadaanDetail->sum('subtotal'),
-                                                0,
-                                                ',',
-                                                '.'
-                                            )
-                                        )
-                                        ->weight('bold'),
-                                ]),
                         ]),
                     Tables\Actions\EditAction::make()->label('Ubah'),
                     Tables\Actions\DeleteAction::make()

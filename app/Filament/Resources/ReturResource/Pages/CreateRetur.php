@@ -94,7 +94,7 @@ class CreateRetur extends CreateRecord
                     'jumlah' => 0,
                     'max_jumlah' => $max,
                     'alasan' => null,
-                    'kondisi' => '',
+                    // 'kondisi' => '',
                 ];
             })->toArray()
         );
@@ -113,23 +113,23 @@ class CreateRetur extends CreateRecord
     }
     protected function afterCreate(): void
     {
-        $retur = $this->record;
+        // $retur = $this->record;
 
-        // refresh dari DB untuk pastikan detail sudah tersimpan
-        $retur->refresh();
-        $retur->load('detail');
+        // // refresh dari DB untuk pastikan detail sudah tersimpan
+        // $retur->refresh();
+        // $retur->load('detail');
 
-        foreach ($retur->detail as $detail) {
+        // foreach ($retur->detail as $detail) {
 
-            if ((int) $detail->jumlah <= 0) continue;
+        //     if ((int) $detail->jumlah <= 0) continue;
 
-            if ($detail->kondisi === 'baik') {
-                $produk = \App\Models\Produk::find($detail->produk_id);
-                if ($produk) {
-                    $produk->increment('stok', $detail->jumlah);
-                }
-            }
-        }
+        //     if ($detail->kondisi === 'baik') {
+        //         $produk = \App\Models\Produk::find($detail->produk_id);
+        //         if ($produk) {
+        //             $produk->increment('stok', $detail->jumlah);
+        //         }
+        //     }
+        // }
     }
 
     // protected function afterCreate(): void

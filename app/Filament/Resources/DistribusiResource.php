@@ -27,6 +27,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Filament\Forms\Components\Select as FormSelect;
+use Filament\Forms\Components\DatePicker as FormDatePicker;
 
 class DistribusiResource extends Resource
 {
@@ -67,7 +69,7 @@ class DistribusiResource extends Resource
                                     ->requiredWithout('tujuan_lain'),
 
                                 TextInput::make('tujuan_lain')
-                                    ->label('Tujuan Lain')
+                                    ->label('Customer / Tujuan Lain')
                                     ->placeholder('Isi jika bukan untuk reseller')
                                     ->visible(fn($get) => !$get('reseller_id')),
                             ])
@@ -162,7 +164,6 @@ class DistribusiResource extends Resource
                                 TextInput::make('jumlah')
                                     ->label('Jumlah')
                                     ->numeric()
-                                    ->minValue(1)
                                     ->required()
                                     ->live()
                                     ->helperText(function ($get) {
@@ -259,7 +260,17 @@ class DistribusiResource extends Resource
                         $record->reseller
                             ? $record->reseller->nama_reseller
                             : $record->tujuan_lain
-                    ),
+                    )
+                    ->searchable(query: function ($query, string $search) {
+                        $query->where(function ($q) use ($search) {
+                            $q->whereHas(
+                                'reseller',
+                                fn($q) =>
+                                $q->where('nama_reseller', 'like', "%{$search}%")
+                            )
+                                ->orWhere('tujuan_lain', 'like', "%{$search}%");
+                        });
+                    }),
 
                 TextColumn::make('detail_count')
                     ->counts('detail')
@@ -267,6 +278,8 @@ class DistribusiResource extends Resource
 
                 TextColumn::make('total')
                     ->label('Total')
+                    ->extraHeaderAttributes(['class' => 'text-left']) // ✅ header kiri
+                    ->extraAttributes(['class' => 'text-right'])      // ✅ isi kanan
                     ->getStateUsing(
                         fn($record) =>
                         $record->detail->sum('subtotal')
@@ -315,7 +328,79 @@ class DistribusiResource extends Resource
                     ->relationship('reseller', 'nama_reseller')
                     ->placeholder('Semua'),
             ])
+            ->headerActions([
+                Action::make('rekap_bulanan')
+                    ->label('Rekap Bulanan Distribusi')
+                    ->icon('heroicon-o-document-chart-bar')
+                    ->color('gray')
+                    ->form([
+                        FormSelect::make('tipe_tujuan')
+                            ->label('Tipe Tujuan')
+                            ->options([
+                                'reseller'    => 'Reseller',
+                                'tujuan_lain' => 'Customer',
+                            ])
+                            ->required()
+                            ->placeholder('Pilih tipe tujuan')
+                            ->native(false)
+                            ->live(),
 
+                        FormSelect::make('reseller_id')
+                            ->label('Reseller')
+                            ->options(\App\Models\Reseller::pluck('nama_reseller', 'id'))
+                            ->searchable()
+                            ->required()
+                            ->placeholder('Pilih Reseller')
+                            ->visible(fn($get) => $get('tipe_tujuan') === 'reseller')
+                            ->live(),
+
+                        FormSelect::make('bulan')
+                            ->label('Bulan')
+                            ->required()
+                            ->placeholder('Pilih bulan')
+                            ->native(false)
+                            ->options(function ($get) {
+                                $tipe = $get('tipe_tujuan');
+                                if (!$tipe) return [];
+
+                                if ($tipe === 'reseller') {
+                                    $resellerId = $get('reseller_id');
+                                    if (!$resellerId) return [];
+                                    // bulan dari distribusi reseller ini
+                                    return Distribusi::where('reseller_id', $resellerId)
+                                        ->where('status', '!=', 'dibatalkan')
+                                        ->selectRaw('DATE_FORMAT(tanggal, "%Y-%m") as bulan_key')
+                                        ->distinct()
+                                        ->orderByRaw('bulan_key DESC')
+                                        ->pluck('bulan_key')
+                                        ->mapWithKeys(fn($b) => [$b => Carbon::createFromFormat('Y-m', $b)->locale('id')->translatedFormat('F Y')])
+                                        ->toArray();
+                                }
+
+                                // tujuan_lain → semua bulan yang ada distribusi tujuan_lain
+                                return Distribusi::whereNotNull('tujuan_lain')
+                                    ->where('status', '!=', 'dibatalkan')
+                                    ->selectRaw('DATE_FORMAT(tanggal, "%Y-%m") as bulan_key')
+                                    ->distinct()
+                                    ->orderByRaw('bulan_key DESC')
+                                    ->pluck('bulan_key')
+                                    ->mapWithKeys(fn($b) => [$b => Carbon::createFromFormat('Y-m', $b)->locale('id')->translatedFormat('F Y')])
+                                    ->toArray();
+                            })
+                            ->live(),
+                    ])
+                    ->action(function (array $data) {
+                        $url = route('invoice.rekap-bulanan', [
+                            'tipe_tujuan' => $data['tipe_tujuan'],
+                            'reseller_id' => $data['reseller_id'] ?? null,
+                            'bulan'       => $data['bulan'],
+                        ]);
+                        return redirect($url);
+                    })
+                    ->modalHeading('Cetak Rekap Bulanan')
+                    ->modalSubmitActionLabel('Cetak')
+                    ->modalCancelActionLabel('Batal'),
+            ])
             ->actions([
                 // DROPDOWN MENU
                 ActionGroup::make([
@@ -367,6 +452,10 @@ class DistribusiResource extends Resource
                                         $record->status_pembayaran !== 'lunas'
                                 )
                                 ->requiresConfirmation()
+                                ->modalHeading('Tandai Lunas?')
+                                ->modalDescription('Tindakan ini akan menandai distribusi sebagai lunas. Pastikan pembayaran sudah diterima sebelum melakukan tindakan ini.')
+                                ->modalSubmitActionLabel('Ya, Tandai Lunas')
+                                ->modalCancelActionLabel('Tidak')
                                 ->action(function ($record) {
 
                                     $record->update([
@@ -377,7 +466,14 @@ class DistribusiResource extends Resource
                                         ->title('Pembayaran ditandai lunas')
                                         ->success()
                                         ->send();
-                                })
+                                }),
+
+                            Action::make('cetak_invoice')
+                                ->label('Cetak Invoice')
+                                ->icon('heroicon-o-printer')
+                                ->color('gray')
+                                ->url(fn($record) => route('invoice.cetak', $record->id))
+                                ->openUrlInNewTab(),
                         ])
                         ->infolist([
                             // SECTION DATA DISTRIBUSI
@@ -423,32 +519,10 @@ class DistribusiResource extends Resource
                                 ->columns(3),
 
                             // SECTION DETAIL PRODUK
-                            InfoSection::make('Data Varian')->label('Data Varian')
+                            InfoSection::make('Data Varian')
                                 ->schema([
-                                    RepeatableEntry::make('detail')->label('Detail Varian')
-                                        ->schema([
-                                            TextEntry::make('produk.nama_produk')
-                                                ->label('Varian')
-                                                ->columnSpan(2),
-
-                                            TextEntry::make('jumlah')
-                                                ->label('Jumlah'),
-
-                                            TextEntry::make('harga')
-                                                ->label('Harga')
-                                                ->formatStateUsing(
-                                                    fn($state) =>
-                                                    'Rp ' . number_format($state, 0, ',', '.')
-                                                ),
-
-                                            TextEntry::make('subtotal')
-                                                ->label('Subtotal')
-                                                ->formatStateUsing(
-                                                    fn($state) =>
-                                                    'Rp ' . number_format($state, 0, ',', '.')
-                                                ),
-                                        ])
-                                        ->columns(5),
+                                    \Filament\Infolists\Components\View::make('infolists.components.distribusi-detail-table')
+                                        ->viewData(fn($record) => ['detail' => $record->detail])
                                 ]),
 
                             // SECTION TOTAL
@@ -511,6 +585,10 @@ class DistribusiResource extends Resource
                                 $record->status_pembayaran !== 'lunas'
                         )
                         ->requiresConfirmation()
+                        ->modalHeading('Tandai Lunas?')
+                        ->modalDescription('Tindakan ini akan menandai distribusi sebagai lunas. Pastikan pembayaran sudah diterima sebelum melakukan tindakan ini.')
+                        ->modalSubmitActionLabel('Ya, Tandai Lunas')
+                        ->modalCancelActionLabel('Tidak')
                         ->action(function ($record) {
 
                             $record->update([

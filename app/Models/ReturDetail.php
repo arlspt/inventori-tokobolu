@@ -14,7 +14,6 @@ class ReturDetail extends Model
         'jumlah',
         'alasan',
         'alasan_lain',
-        'kondisi',
     ];
 
     public function retur()

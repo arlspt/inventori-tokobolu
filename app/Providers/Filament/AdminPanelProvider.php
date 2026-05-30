@@ -19,8 +19,6 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
-use App\Filament\Widgets\DashboardFilter;
-use App\Filament\Widgets\DashboardStats;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -31,6 +29,10 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName('Bolu Legenda Malang')        // ganti teks Laravel
+            ->brandLogo(asset('images/logo_header.png'))     // tampilkan logo
+            ->brandLogoHeight('34px')                  // ukuran logo
+            ->favicon(asset('images/logo.jpeg')) // logo di tab browser
             ->colors([
                 'primary' => Color::Amber, // Ubah warna utama di sini
             ])
@@ -43,8 +45,8 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 // Widgets\AccountWidget::class,
                 // Widgets\FilamentInfoWidget::class,
-                DashboardFilter::class,
-                DashboardStats::class,
+                // DashboardFilter::class,
+                // DashboardStats::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -141,9 +143,13 @@ box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
 .fi-main {
     background: #f9fafb;
 }
-
-</style>'
+   /* ===== SEMBUNYIKAN TEKS LARAVEL ===== */
+// div.fi-logo {
+//     font-size: 0 !important;
+// }
+    </style>'
             )
+
             ->authMiddleware([
                 Authenticate::class,
             ]);
