@@ -11,7 +11,8 @@ class Reseller extends Model
     protected $fillable = [
         'nama_reseller',
         'alamat',
-        'no_telp'
+        'no_telp',
+        'kota',
     ];
 
     public function distribusi()

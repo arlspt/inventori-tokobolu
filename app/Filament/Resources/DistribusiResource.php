@@ -34,7 +34,7 @@ class DistribusiResource extends Resource
 {
     protected static ?string $model = Distribusi::class;
     protected static ?int $navigationSort = 3; // Urutan 3 menu di sidebar
-    protected static ?string $navigationIcon = 'heroicon-o-arrow-up-right';
+    protected static ?string $navigationIcon = 'heroicon-o-truck';
     protected static ?string $navigationLabel = 'Distribusi';
     protected static ?string $pluralModelLabel = 'Distribusi';
 
@@ -66,7 +66,32 @@ class DistribusiResource extends Resource
                                     ->live()
                                     ->relationship('reseller', 'nama_reseller')
                                     ->searchable()
-                                    ->requiredWithout('tujuan_lain'),
+                                    ->requiredWithout('tujuan_lain')
+                                    ->createOptionForm([
+                                        TextInput::make('nama_reseller')
+                                            ->label('Nama Reseller')
+                                            ->required(),
+                                        TextInput::make('no_telp')
+                                            ->label('No. Telepon')
+                                            ->tel()
+                                            ->required(),
+                                        Textarea::make('alamat')
+                                            ->label('Alamat')
+                                            ->required(),
+                                        Select::make('kota')
+                                            ->label('Kota')
+                                            ->placeholder('Pilih Kota')
+                                            ->options(\App\Helpers\KotaIndonesia::list())
+                                            ->searchable()
+                                            ->required(),
+                                    ])
+                                    ->createOptionAction(function ($action) {
+                                        return $action
+                                            ->label('Tambah Reseller')
+                                            ->modalHeading('Tambah Reseller Baru')
+                                            ->modalSubmitActionLabel('Simpan')
+                                            ->modalCancelActionLabel('Batal');
+                                    }),
 
                                 TextInput::make('tujuan_lain')
                                     ->label('Customer / Tujuan Lain')
@@ -238,6 +263,7 @@ class DistribusiResource extends Resource
             )
             ->recordUrl(null) // penting
             ->recordAction('view') // klik row -> modal
+            ->searchPlaceholder('Cari Tujuan')
             ->columns([
                 TextColumn::make('nomor_invoice')
                     ->label('No. Invoice')
@@ -274,12 +300,12 @@ class DistribusiResource extends Resource
 
                 TextColumn::make('detail_count')
                     ->counts('detail')
-                    ->label('Jumlah Item'),
+                    ->label('Jumlah Item')
+                    ->alignCenter(),
 
                 TextColumn::make('total')
                     ->label('Total')
-                    ->extraHeaderAttributes(['class' => 'text-left']) // ✅ header kiri
-                    ->extraAttributes(['class' => 'text-right'])      // ✅ isi kanan
+                    ->alignEnd()      // ✅ isi kanan
                     ->getStateUsing(
                         fn($record) =>
                         $record->detail->sum('subtotal')
@@ -523,23 +549,6 @@ class DistribusiResource extends Resource
                                 ->schema([
                                     \Filament\Infolists\Components\View::make('infolists.components.distribusi-detail-table')
                                         ->viewData(fn($record) => ['detail' => $record->detail])
-                                ]),
-
-                            // SECTION TOTAL
-                            InfoSection::make('Total')
-                                ->schema([
-                                    TextEntry::make('total')
-                                        ->label('Total Keseluruhan')
-                                        ->getStateUsing(
-                                            fn($record) =>
-                                            'Rp ' . number_format(
-                                                $record->detail->sum('subtotal'),
-                                                0,
-                                                ',',
-                                                '.'
-                                            )
-                                        )
-                                        ->weight('bold'),
                                 ]),
                         ]),
                     Tables\Actions\EditAction::make()

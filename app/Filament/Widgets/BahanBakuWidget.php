@@ -55,7 +55,7 @@ class BahanBakuWidget extends Widget
                 'stok_raw'    => $bahan->stok,
                 'satuan'      => $bahan->satuan,
                 'stok_label'  => $this->formatStok($bahan->stok, $bahan->satuan),
-                'low'         => $bahan->stok <= 500, // warning kalau stok <= 500
+                'low'         => $bahan->stok <= 1000, // warning kalau stok <= 1000
             ];
         });
     }
@@ -106,7 +106,7 @@ class BahanBakuWidget extends Widget
                 'stok_raw'   => $stokPadaBulan,
                 'satuan'     => $bahan->satuan,
                 'stok_label' => $this->formatStok($stokPadaBulan, $bahan->satuan),
-                'low'        => $stokPadaBulan <= 500,
+                'low'        => $stokPadaBulan <= 1000, // warning kalau stok <= 1000
             ];
         });
     }
@@ -122,7 +122,7 @@ class BahanBakuWidget extends Widget
         $options[now()->format('Y-m')] = 'Bulan Ini (' . now()->locale('id')->translatedFormat('F Y') . ')';
 
         // bulan dari data pengadaan
-        \App\Models\Pengadaan::selectRaw('DATE_FORMAT(tanggal, "%Y-%m") as bulan')
+        Pengadaan::selectRaw('DATE_FORMAT(tanggal, "%Y-%m") as bulan')
             ->distinct()
             ->orderByRaw('bulan DESC')
             ->pluck('bulan')

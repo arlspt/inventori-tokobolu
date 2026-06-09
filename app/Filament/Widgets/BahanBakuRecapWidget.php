@@ -87,9 +87,10 @@ class BahanBakuRecapWidget extends Widget
 
             // ── HARGA TERAKHIR dari pengadaan ──
             $hargaTerakhir = PengadaanDetail::where('bahan_baku_id', $bahan->id)
-                ->whereHas('pengadaan', fn($q) => $q->orderBy('tanggal', 'desc'))
-                ->orderByDesc('id')
-                ->value('harga') ?? 0;
+                ->join('pengadaan', 'pengadaan_detail.pengadaan_id', '=', 'pengadaan.id')
+                ->orderBy('pengadaan.tanggal', 'desc')
+                ->orderBy('pengadaan_detail.id', 'desc')
+                ->value('pengadaan_detail.harga') ?? 0;
 
             // ── TOTAL HARGA PENGGUNAAN ──
             $totalHargaPenggunaan = $penggunaan * $hargaTerakhir;

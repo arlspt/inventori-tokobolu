@@ -55,8 +55,8 @@ body {
 }
 
 .logo {
-    width: 36px;
-    height: 36px;
+    width: 54px;
+    height: 54px;
     object-fit: contain;
     flex-shrink: 0;
     margin-top: 1px;

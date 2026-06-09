@@ -13,13 +13,13 @@
             {{-- DROPDOWN HISTORY --}}
             <div class="flex items-center gap-2">
                 <select
-                    wire:model.live="bulanHistory"
-                    class="text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 focus:ring-1 focus:ring-amber-400 focus:outline-none"
-                >
-                    @foreach ($this->getBulanOptions() as $value => $label)
-                        <option value="{{ $value }}">{{ $label }}</option>
-                    @endforeach
-                </select>
+    wire:model.live="bulanHistory"
+    class="text-xs border border-gray-200 rounded-lg pl-3 pr-10 py-2 bg-white dark:bg-gray-900 dark:border-emerald-800 dark:text-gray-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none min-w-[220px]"
+>
+                @foreach ($this->getBulanOptions() as $value => $label)
+                    <option value="{{ $value }}">{{ $label }}</option>
+                @endforeach
+            </select>
             </div>
         </div>
 
@@ -27,15 +27,15 @@
         <div class="overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700">
             <table class="w-full text-xs">
                 <thead>
-                    <tr class="bg-gray-50 dark:bg-gray-700/50">
-                        <th class="text-left px-3 py-2 text-gray-500 dark:text-gray-400 font-semibold">Bahan</th>
-                        <th class="text-right px-3 py-2 text-gray-500 dark:text-gray-400 font-semibold">Stok</th>
+                    <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+                        <th class="text-left px-3 py-2 text-gray-500 dark:text-gray-200 font-semibold">Bahan</th>
+                        <th class="text-right px-3 py-2 text-gray-500 dark:text-gray-200 font-semibold">Stok</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                <tbody class="divide-y divide-gray-100 dark:divide-zinc-700">
                     @forelse ($this->getStokHistory()->take(5) as $bahan)
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                            <td class="px-3 py-2 text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                        <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+                            <td class="px-3 py-2 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
                                 @if ($bahan['low'])
                                     <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span>
                                 @else
@@ -63,7 +63,7 @@
         @if ($this->getStokHistory()->count() > 5)
             <button
                 wire:click="openModal"
-                class="mt-3 w-full text-xs text-amber-600 hover:text-amber-700 font-medium py-1.5 rounded-lg border border-amber-200 hover:border-amber-300 hover:bg-amber-50 transition-all"
+                class="mt-3 w-full text-xs text-amber-600 hover:text-amber-700 font-medium py-1.5 rounded-lg border border-amber-200 hover:border-amber-300 hover:bg-amber-50 transition-all dark:hover:bg-white/5"
             >
                 Lihat Semua ({{ $this->getStokHistory()->count() }} bahan)
             </button>
@@ -78,13 +78,26 @@
             wire:click.self="closeModal"
         >
             {{-- BACKDROP --}}
-            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+            <div class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
 
             {{-- MODAL CONTENT --}}
-            <div class="relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col z-10">
+            <div class="
+        relative
+        w-full max-w-2xl
+        max-h-[85vh]
+        flex flex-col
+        rounded-2xl
+        shadow-2xl
+        z-10
+rounded-lg
+        bg-white
+        dark:bg-gray-900
 
+        border border-gray-200
+        dark:border-gray-700
+    ">
                 {{-- MODAL HEADER --}}
-                <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-gray-700">
                     <div>
                         <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
                             Stok Bahan Baku — Lengkap
@@ -104,20 +117,20 @@
                 </div>
 
                 {{-- MODAL BODY --}}
-                <div class="overflow-y-auto flex-1 p-5">
+                <div class="overflow-y-auto flex-1 p-6">
                     <div class="overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700">
                         <table class="w-full text-xs">
                             <thead>
-                                <tr class="bg-gray-50 dark:bg-gray-700/50">
-                                    <th class="text-left px-4 py-2.5 text-gray-500 dark:text-gray-400 font-semibold">Bahan Baku</th>
-                                    <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-400 font-semibold">Stok</th>
-                                    <th class="text-center px-4 py-2.5 text-gray-500 dark:text-gray-400 font-semibold">Status</th>
+                                <tr class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-200">
+                                    <th class="text-left px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Bahan Baku</th>
+                                    <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Stok</th>
+                                    <th class="text-center px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Status</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                                 @foreach ($this->getStokHistory() as $bahan)
-                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                                        <td class="px-4 py-2.5 text-gray-700 dark:text-gray-300">
+                                    <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+                                        <td class="px-4 py-2.5 text-gray-700 dark:text-gray-200">
                                             {{ $bahan['nama'] }}
                                         </td>
                                         <td class="px-4 py-2.5 text-right font-semibold
@@ -127,11 +140,11 @@
                                         <td class="px-4 py-2.5 text-center">
                                             @if ($bahan['low'])
                                                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                                                    ⚠ Menipis
+                                                    Menipis
                                                 </span>
                                             @else
                                                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400">
-                                                    ✓ Aman
+                                                    Aman
                                                 </span>
                                             @endif
                                         </td>
@@ -143,10 +156,10 @@
                 </div>
 
                 {{-- MODAL FOOTER --}}
-                <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+                <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end bg-gray-50/50 dark:bg-gray-800/50 rounded-b-2xl">
                     <button
                         wire:click="closeModal"
-                        class="text-xs px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-lg transition-colors"
+                        class="text-xs px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-200 rounded-lg transition-colors"
                     >
                         Tutup
                     </button>

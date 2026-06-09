@@ -14,9 +14,9 @@
 
             {{-- DROPDOWN BULAN --}}
             <select
-                wire:model.live="bulanRecap"
-                class="text-xs border border-gray-200 rounded-md px-2 py-1.5 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 focus:ring-1 focus:ring-amber-400 focus:outline-none"
-            >
+    wire:model.live="bulanRecap"
+    class="text-xs border border-gray-200 rounded-lg pl-3 pr-10 py-2 bg-white dark:bg-gray-900 dark:border-emerald-800 dark:shadow-[0_0_0_1px_rgba(16,185,129,0.15)] dark:text-gray-200 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none min-w-[220px]"
+>
                 @foreach ($this->getBulanOptions() as $value => $label)
                     <option value="{{ $value }}">{{ $label }}</option>
                 @endforeach
@@ -34,18 +34,18 @@
             <div class="overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700 mb-4">
                 <table class="w-full text-xs">
                     <thead>
-                        <tr class="bg-gray-50 dark:bg-gray-700/50">
-                            <th class="text-left px-4 py-2.5 text-gray-500 dark:text-gray-400 font-semibold">Bahan Baku</th>
-                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-400 font-semibold">Digunakan</th>
-                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-400 font-semibold">Masuk</th>
-                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-400 font-semibold">Tersedia</th>
-                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-400 font-semibold">Total Harga</th>
+                        <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+                            <th class="text-left px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Bahan Baku</th>
+                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Digunakan</th>
+                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Masuk</th>
+                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Tersedia</th>
+                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Total Harga</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                         @foreach ($recap as $item)
                             <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                <td class="px-4 py-2.5 font-medium text-gray-700 dark:text-gray-300">
+                                <td class="px-4 py-2.5 font-medium text-gray-800 dark:text-gray-200">
                                     {{ $item['nama'] }}
                                 </td>
                                 <td class="px-4 py-2.5 text-right text-red-500 font-medium">
@@ -55,10 +55,10 @@
                                     @if ($item['pengadaan_raw'] > 0)
                                         +{{ $item['pengadaan_label'] }}
                                     @else
-                                        <span class="text-gray-300 dark:text-gray-600">—</span>
+                                        <span class="text-gray-300 dark:text-gray-200">—</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300 font-semibold">
+                                <td class="px-4 py-2.5 text-right text-gray-700 dark:text-gray-200 font-semibold">
                                     {{ $item['stok_tersedia_label'] }}
                                 </td>
                                 <td class="px-4 py-2.5 text-right font-semibold text-gray-800 dark:text-gray-200">
@@ -74,14 +74,14 @@
             <div class="flex items-end justify-between">
 
                 {{-- LEGENDA --}}
-                <div class="flex gap-4 text-xs text-gray-400">
+                <div class="flex gap-4 text-xs text-gray-200">
                     <span class="flex items-center gap-1">
                         <span class="inline-block w-2 h-2 rounded-full bg-red-400"></span>
-                        Digunakan produksi
+                        {{-- Digunakan produksi --}}
                     </span>
                     <span class="flex items-center gap-1">
                         <span class="inline-block w-2 h-2 rounded-full bg-green-400"></span>
-                        Pengadaan masuk
+                        {{-- Pengadaan masuk --}}
                     </span>
                 </div>
 

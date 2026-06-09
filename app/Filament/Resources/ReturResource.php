@@ -308,6 +308,7 @@ class ReturResource extends Resource
                     ->orderByRaw('CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END ASC')
                     ->orderBy('created_at', 'desc')
             )
+            ->searchPlaceholder('Cari Distribusi')
             ->recordClasses(
                 fn($record) =>
                 $record->deleted_at ? 'opacity-70 text-gray-700' : null
@@ -365,6 +366,7 @@ class ReturResource extends Resource
 
                 TextColumn::make('total_retur')
                     ->label('Total Retur')
+                    ->alignCenter()
                     ->getStateUsing(fn($record) => $record->detail->sum('jumlah')),
 
                 TextColumn::make('user.name')

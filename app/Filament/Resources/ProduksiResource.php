@@ -29,7 +29,7 @@ class ProduksiResource extends Resource
 {
     protected static ?string $model = Produksi::class;
     protected static ?int $navigationSort = 2; // Urutan 2 menu di sidebar
-    protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
+    protected static ?string $navigationIcon = 'heroicon-o-cube';
     protected static ?string $navigationLabel = 'Produksi';
     protected static ?string $pluralModelLabel = 'Produksi';
     public static function form(Form $form): Form
@@ -365,19 +365,54 @@ class ProduksiResource extends Resource
 
                 TextColumn::make('produksiDetail')
                     ->label('Jumlah Varian')
+                    ->alignCenter()
                     ->getStateUsing(function ($record) {
 
                         return $record->produksiDetail->sum(function ($item) {
                             return ($item->jumlah_produksi ?? 0) - ($item->gagal ?? 0);
                         });
                     }),
-                // TextColumn::make('created_at')
-                //     ->dateTime()
-                //     ->label('Dibuat Pada'),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('user_id')
+                    ->label('Dibuat Oleh')
+                    ->options(
+                        \App\Models\User::all()->mapWithKeys(function ($user) {
+                            $role = $user->getRoleNames()->first() ?? '-';
+                            return [$user->id => $user->name . ' (' . ucfirst($role) . ')'];
+                        })
+                    )
+                    ->placeholder('Semua User'),
+
+                Tables\Filters\Filter::make('bulan')
+                    ->form([
+                        \Filament\Forms\Components\Select::make('bulan')
+                            ->label('Bulan')
+                            ->options(function () {
+                                return \App\Models\Produksi::selectRaw('DATE_FORMAT(tanggal, "%Y-%m") as bulan_key')
+                                    ->distinct()
+                                    ->orderByRaw('bulan_key DESC')
+                                    ->pluck('bulan_key')
+                                    ->mapWithKeys(fn($b) => [
+                                        $b => Carbon::createFromFormat('Y-m', $b)
+                                            ->locale('id')
+                                            ->translatedFormat('F Y')
+                                    ])
+                                    ->toArray();
+                            })
+                            ->placeholder('Semua Bulan'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (!filled($data['bulan'])) return $query;
+                        [$year, $month] = explode('-', $data['bulan']);
+                        return $query->whereYear('tanggal', $year)->whereMonth('tanggal', $month);
+                    })
+                    ->indicateUsing(function (array $data) {
+                        if (!filled($data['bulan'])) return null;
+                        return 'Bulan: ' . Carbon::createFromFormat('Y-m', $data['bulan'])
+                            ->locale('id')->translatedFormat('F Y');
+                    }),
             ])
             ->actions([
                 ActionGroup::make([

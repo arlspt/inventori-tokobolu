@@ -20,7 +20,6 @@ use Filament\Tables\Actions\ViewAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Infolists\Components\Section as InfoSection;
-use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
 use Carbon\Carbon;
 
@@ -28,7 +27,7 @@ class PengadaanResource extends Resource
 {
     protected static ?string $model = Pengadaan::class;
     protected static ?int $navigationSort = 1; // Urutan 1 menu di sidebar
-    protected static ?string $navigationIcon = 'heroicon-o-truck';
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationLabel = 'Pengadaan Bahan Baku';
     protected static ?string $modelLabel = 'Pengadaan';
     protected static ?string $pluralModelLabel = 'Pengadaan Bahan Baku';
@@ -61,15 +60,19 @@ class PengadaanResource extends Resource
                                 TextInput::make('nama_supplier')
                                     ->label('Nama Supplier')
                                     ->required(),
-
                                 TextInput::make('telepon')
                                     ->label('No. Telepon')
                                     ->tel()
                                     ->required(),
-
                                 Textarea::make('alamat')
                                     ->label('Alamat')
                                     ->required(),
+                                Select::make('kota')
+                                    ->label('Kota')
+                                    ->placeholder('Pilih Kota')
+                                    ->options(\App\Helpers\KotaIndonesia::list())
+                                    ->searchable()
+                                    ->nullable(),
                             ])
 
                             // CUSTOM BUTTON
@@ -230,7 +233,7 @@ class PengadaanResource extends Resource
             )
             ->recordUrl(null)
             ->recordAction('view') // klik row -> modal
-
+            ->searchPlaceholder('Cari Supplier')
             ->columns([
                 TextColumn::make('tanggal')
                     ->label('Tanggal')
@@ -242,28 +245,72 @@ class PengadaanResource extends Resource
                     ),
 
                 TextColumn::make('supplier.nama_supplier')
-                    ->label('Supplier'),
+                    ->label('Supplier')
+                    ->searchable(),
 
                 TextColumn::make('jumlah_item')
                     ->label('Jumlah Bahan')
+                    ->alignCenter()
                     ->getStateUsing(fn($record) => $record->pengadaanDetail->count()),
 
                 TextColumn::make('total_harga')
                     ->label('Total')
+                    ->alignEnd()
                     ->getStateUsing(
                         fn($record) =>
                         'Rp. ' . number_format($record->pengadaanDetail->sum('subtotal'), 0, ',', '.')
                     ),
 
                 TextColumn::make('user.name')
-                    ->label('Dibuat Oleh'),
+                    ->label('Dibuat Oleh')
+                    ->alignCenter(),
             ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('supplier_id')
+                    ->label('Supplier')
+                    ->relationship('supplier', 'nama_supplier')
+                    ->placeholder('Semua Supplier'),
 
+                Tables\Filters\SelectFilter::make('user_id')
+                    ->label('Dibuat Oleh')
+                    ->options(
+                        \App\Models\User::all()->mapWithKeys(function ($user) {
+                            $role = $user->getRoleNames()->first() ?? '-';
+                            return [$user->id => $user->name . ' (' . ucfirst($role) . ')'];
+                        })
+                    )
+                    ->placeholder('Semua User'),
+
+                Tables\Filters\Filter::make('bulan')
+                    ->form([
+                        Select::make('bulan')
+                            ->label('Bulan')
+                            ->options(function () {
+                                return Pengadaan::selectRaw('DATE_FORMAT(tanggal, "%Y-%m") as bulan_key')
+                                    ->distinct()
+                                    ->orderByRaw('bulan_key DESC')
+                                    ->pluck('bulan_key')
+                                    ->mapWithKeys(fn($b) => [
+                                        $b => Carbon::createFromFormat('Y-m', $b)
+                                            ->locale('id')
+                                            ->translatedFormat('F Y')
+                                    ])
+                                    ->toArray();
+                            })
+                            ->placeholder('Semua Bulan'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (!filled($data['bulan'])) return $query;
+                        [$year, $month] = explode('-', $data['bulan']);
+                        return $query->whereYear('tanggal', $year)->whereMonth('tanggal', $month);
+                    })
+                    ->indicateUsing(function (array $data) {
+                        if (!filled($data['bulan'])) return null;
+                        return 'Bulan: ' . Carbon::createFromFormat('Y-m', $data['bulan'])
+                            ->locale('id')->translatedFormat('F Y');
+                    }),
+            ])
             ->actions([
-
-                // DETAIL (dipanggil saat klik row)
-
-
                 // DROPDOWN ACTION
                 ActionGroup::make([
                     ViewAction::make('view')

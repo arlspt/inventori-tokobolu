@@ -51,15 +51,14 @@ body {
 .brand-left {
     display: flex;
     align-items: flex-start;
-    gap: 16px;
+    gap: 10px;
 }
 
 .logo {
-    width: 52px;
-    height: 52px;
+    width: 54px;
+    height: 54px;
     object-fit: contain;
     flex-shrink: 0;
-    margin-top: 1px;
 }
 
 .brand-name {
@@ -73,31 +72,38 @@ body {
 .brand-addr {
     font-size: 8px;
     color: #8a8278;
-    line-height: 1.45;
+    line-height: 1.5;
 }
 
 .inv-box {
     border: 1px solid #ddd9d4;
     padding: 8px 12px;
-    min-width: 130px;
+    min-width: 148px;
+    max-width: 148px;
     background: #faf9f7;
 }
 
 .inv-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 40px 1fr;
     font-size: 8px;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
+    align-items: start;
 }
 .inv-row:last-child { margin-bottom: 0; }
-.inv-key { color: #8a8278; }
+.inv-key { color: #8a8278; white-space: nowrap; }
 .inv-val {
-    font-weight: 700;
+    font-weight: 500;
     color: #1e1c1a;
-    font-family: 'Courier New', monospace;
     font-size: 8px;
-    text-align: right;
+    word-break: break-word;
+}
+.inv-val-reseller {
+    font-weight: 500;
+    color: #1e1c1a;
+    font-size: 8px;
+    line-height: 1.4;
+    word-break: break-word;
 }
 
 /* ── TITLE AREA ── */
@@ -118,7 +124,22 @@ body {
     font-size: 12px;
     font-weight: 700;
     color: #1e1c1a;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
 }
+
+/* ── INFO ROW (Tanggal + No Invoice) ── */
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4mm;
+    font-size: 9px;
+}
+.info-item { display: flex; align-items: baseline; gap: 6px; }
+.info-label { color: #8a8278; white-space: nowrap; }
+.info-sep   { color: #8a8278; }
+.info-val   { font-weight: 700; font-size: 10px; color: #1e1c1a; }
 
 /* ── OUTLET ROW ── */
 .outlet-row {
@@ -168,32 +189,28 @@ th:nth-child(4), td:nth-child(4) { text-align: right; }
 td {
     padding: 6px 8px;
     color: #3d3a37;
+    border-bottom: 1px solid #f0ede8;
 }
-tbody tr:nth-child(odd) td  { background: #faf9f7; }
-tbody tr:nth-child(even) td { background: #ffffff; }
+tbody tr:last-child td { border-bottom: none; }
 
 /* ── TOTAL per invoice ── */
 .total-area {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: baseline;
     margin-bottom: 6mm;
     padding-top: 3mm;
-    border-top: 1px solid #ddd9d4;
-}
-.total-block {
-    display: flex;
-    align-items: baseline;
-    gap: 16px;
+    border-top: 1.5px solid #1e1c1a;
 }
 .total-label {
-    font-size: 8px;
+    font-size: 10px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #b5ada6;
-    margin-bottom: 2px;
+    letter-spacing: 0.5px;
+    color: #1e1c1a;
 }
 .total-value {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 900;
     color: #1e1c1a;
     font-family: 'Courier New', monospace;
@@ -215,8 +232,8 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 }
 .sig-label {
     font-size: 8px;
-    letter-spacing: 0.5px;
     color: #8a8278;
+    margin-bottom: 2px;
 }
 
 /* ── SUMMARY PAGE ── */
@@ -301,7 +318,6 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 .payment-summary {
     display: flex;
     justify-content: flex-end;
-    gap: 0;
     margin-bottom: 4mm;
 }
 .payment-summary-box {
@@ -332,7 +348,6 @@ tbody tr:nth-child(even) td { background: #ffffff; }
     text-transform: uppercase;
     letter-spacing: 0.8px;
     color: #b5ada6;
-
 }
 .grand-total-value {
     font-size: 20px;
@@ -402,13 +417,16 @@ tbody tr:nth-child(even) td { background: #ffffff; }
         </div>
         <div class="inv-box">
             <div class="inv-row">
-                <span class="inv-key">No. Invoice</span>
-                <span class="inv-val">{{ $distribusi->nomor_invoice }}</span>
+                <span class="inv-key">Reseller :</span>
+                <span class="inv-val">{{ $reseller->nama_reseller }}</span>
             </div>
             <div class="inv-row">
-                <span class="inv-key">Tanggal</span>
-                <span class="inv-val">
-                    {{ \Carbon\Carbon::parse($distribusi->tanggal)->locale('id')->translatedFormat('d M Y') }}
+                <span class="inv-key">Alamat :</span>
+                <span class="inv-val-reseller">
+                    @if ($reseller->alamat)
+                        {{ $reseller->alamat }}
+                        @if ($reseller->kota), {{ $reseller->kota }}@endif
+                    @endif
                 </span>
             </div>
         </div>
@@ -416,13 +434,20 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 
     <div class="title-area">
         <div class="title-ornament">— ✦ —</div>
-        <div class="title-text">TANDA TERIMA PENGIRIMAN BARANG</div>
+        <div class="title-text">Tanda Terima Pengiriman Barang</div>
     </div>
 
-    <div class="outlet-row">
-        <span class="outlet-label">Kepada</span>
-        <span class="outlet-dots"></span>
-        <span class="outlet-val">{{ $reseller->nama_reseller }}</span>
+    <div class="info-row">
+        <div class="info-item">
+            <span class="info-label">Tanggal :</span>
+            <span class="info-val">
+                {{ \Carbon\Carbon::parse($distribusi->tanggal)->locale('id')->translatedFormat('d M Y') }}
+            </span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">No. Invoice :</span>
+            <span class="info-val">{{ $distribusi->nomor_invoice }}</span>
+        </div>
     </div>
 
     <table>
@@ -447,11 +472,9 @@ tbody tr:nth-child(even) td { background: #ffffff; }
     </table>
 
     <div class="total-area">
-        <div class="total-block">
-            <div class="total-label">Total :</div>
-            <div class="total-value">
-                Rp {{ number_format($distribusi->detail->sum('subtotal'), 0, ',', '.') }}
-            </div>
+        <div class="total-label">Total :</div>
+        <div class="total-value">
+            Rp {{ number_format($distribusi->detail->sum('subtotal'), 0, ',', '.') }}
         </div>
     </div>
 
@@ -461,7 +484,7 @@ tbody tr:nth-child(even) td { background: #ffffff; }
             <div class="sig-line"></div>
         </div>
         <div class="sig">
-            <div class="sig-label">Pengirim</div>
+            <div class="sig-label">Pengirim,</div>
             <div class="sig-line"></div>
         </div>
     </div>
@@ -487,7 +510,7 @@ tbody tr:nth-child(even) td { background: #ffffff; }
     </div>
 
     <div class="summary-header">
-        <div class="summary-title">REKAP INVOICE BULANAN</div>
+        <div class="summary-title">Rekap Invoice Bulanan</div>
         <div class="summary-sub">{{ $bulanLabel }}</div>
     </div>
 

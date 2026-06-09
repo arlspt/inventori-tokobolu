@@ -42,15 +42,14 @@ body {
 .brand-left {
     display: flex;
     align-items: flex-start;
-    gap: 9px;
+    gap: 10px;
 }
 
 .logo {
-    width: 36px;
-    height: 36px;
+    width: 54px;
+    height: 54px;
     object-fit: contain;
     flex-shrink: 0;
-    margin-top: 1px;
 }
 
 .brand-name {
@@ -64,7 +63,44 @@ body {
 .brand-addr {
     font-size: 8px;
     color: #8a8278;
-    line-height: 1.45;
+    line-height: 1.5;
+}
+
+/* ── KOTAK KANAN ATAS ── */
+.inv-box {
+    border: 1px solid #ddd9d4;
+    padding: 8px 12px;
+    min-width: 148px;
+    max-width: 148px;
+    background: #faf9f7;
+}
+
+.inv-row {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    font-size: 8px;
+    margin-bottom: 4px;
+    align-items: start;
+}
+.inv-row:last-child { margin-bottom: 0; }
+
+.inv-key {
+    color: #8a8278;
+    white-space: nowrap;
+}
+
+.inv-val {
+    font-weight: 500;
+    color: #1e1c1a;
+    font-size: 8px;
+    word-break: break-word;
+}
+
+.inv-val-reseller {
+    font-weight: 500;
+    color: #1e1c1a;
+    font-size: 8px;
+    word-break: break-word;
 }
 
 .retur-box {
@@ -114,31 +150,35 @@ body {
     letter-spacing: 0.3px;
 }
 
-/* ── OUTLET ROW ── */
-.outlet-row {
+/* ── INFO ROW (Tanggal + No Invoice) ── */
+.info-row {
     display: flex;
-    gap: 8px;
+    justify-content: space-between;
     align-items: baseline;
-    margin-bottom: 5mm;
+    margin-bottom: 4mm;
+    font-size: 9px;
 }
 
-.outlet-label {
-    font-size: 8px;
+.info-item-column {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.info-item {
+    display: flex;
+    align-items: baseline;
+}
+
+.info-label {
+    width: 75px; /* samakan panjang label */
     color: #8a8278;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
     white-space: nowrap;
 }
 
-.outlet-dots {
-    flex: 1;
-    border-bottom: 1px dotted #c5bfb6;
-    margin-bottom: 2px;
-}
-
-.outlet-val {
-    font-size: 10px;
+.info-val {
     font-weight: 700;
+    font-size: 10px;
     color: #1e1c1a;
 }
 
@@ -176,28 +216,22 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 /* ── TOTAL ── */
 .total-area {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: baseline;
     margin-bottom: 6mm;
     padding-top: 3mm;
-    border-top: 1px solid #ddd9d4;
-}
-
-.total-block {
-    display: flex;
-    align-items: baseline;
-    gap: 16px;
+    border-top: 1.5px solid #1e1c1a;
 }
 
 .total-label {
-    font-size: 8px;
+    font-size: 10px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #b5ada6;
-    margin-bottom: 2px;
+    color: #1e1c1a;
 }
 
 .total-value {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 900;
     color: #1e1c1a;
     font-family: 'Courier New', monospace;
@@ -282,19 +316,27 @@ tbody tr:nth-child(even) td { background: #ffffff; }
                 </div>
             </div>
         </div>
-        <div class="retur-box">
-            <div class="retur-row">
-                <span class="retur-key">No. Retur</span>
-                <span class="retur-val">{{ $retur->nomor_retur }}</span>
+        {{-- KANAN: NO INVOICE + NAMA & ALAMAT RESELLER --}}
+        <div class="inv-box">
+            <div class="inv-row">
+                <span class="inv-key">Reseller :</span>
+                <span class="inv-val">{{ $retur->distribusi->reseller
+                ? $retur->distribusi->reseller->nama_reseller
+                : $retur->distribusi->tujuan_lain }}</span>
             </div>
-            <div class="retur-row">
-                <span class="retur-key">No. Invoice</span>
-                <span class="retur-val">{{ $retur->distribusi->nomor_invoice }}</span>
-            </div>
-            <div class="retur-row">
-                <span class="retur-key">Tanggal</span>
-                <span class="retur-val">
-                    {{ \Carbon\Carbon::parse($retur->tanggal)->locale('id')->translatedFormat('d M Y') }}
+            <div class="inv-row">
+                <span class="inv-key">Alamat :</span>
+                <span class="inv-val-reseller">
+                    @if ($retur->distribusi->reseller)
+                        @if ($retur->distribusi->reseller->alamat)
+                            {{ $retur->distribusi->reseller->alamat}}
+                            @if ($retur->distribusi->reseller->kota)
+                            , {{ $retur->distribusi->reseller->kota }}
+                            @endif
+                        @endif
+                    @else
+                        {{ $retur->distribusi->tujuan_lain }}
+                    @endif
                 </span>
             </div>
         </div>
@@ -307,14 +349,26 @@ tbody tr:nth-child(even) td { background: #ffffff; }
     </div>
 
     {{-- OUTLET --}}
-    <div class="outlet-row">
-        <span class="outlet-label">Dari Outlet</span>
-        <span class="outlet-dots"></span>
-        <span class="outlet-val">
-            {{ $retur->distribusi->reseller
-                ? $retur->distribusi->reseller->nama_reseller
-                : $retur->distribusi->tujuan_lain }}
-        </span>
+    <div class="info-row">
+            <div class="info-item">
+        <span class="info-label">Tanggal Retur:</span>
+            <span class="info-val">
+                {{ \Carbon\Carbon::parse($retur->distribusi->tanggal)->locale('id')->translatedFormat('d M Y') }}
+            </span>
+            </div>
+            <div class="info-item-column">
+
+    <div class="info-item">
+        <span class="info-label">No. Invoice :</span>
+        <span class="info-val">{{ $retur->distribusi->nomor_invoice }}</span>
+    </div>
+
+    <div class="info-item">
+        <span class="info-label">No. Retur :</span>
+        <span class="info-val">{{ $retur->nomor_retur }}</span>
+    </div>
+
+</div>
     </div>
 
     {{-- TABEL DETAIL RETUR --}}
@@ -346,11 +400,9 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 
     {{-- TOTAL RETUR --}}
     <div class="total-area">
-        <div class="total-block">
-            <div class="total-label">Total Retur :</div>
-            <div class="total-value">{{ $retur->detail->sum('jumlah') }} pcs</div>
-        </div>
-    </div>
+    <div class="total-label">Total Retur :</div>
+    <div class="total-value">{{ $retur->detail->sum('jumlah') }} pcs</div>
+</div>
 
     {{-- KETERANGAN (kalau ada) --}}
     @if ($retur->keterangan)

@@ -25,7 +25,7 @@ body {
 .page {
     width: 148mm;
     min-height: 210mm;
-    padding: 10mm 11mm 10mm;
+    padding: 10mm 11mm;
     display: flex;
     flex-direction: column;
 }
@@ -42,15 +42,14 @@ body {
 .brand-left {
     display: flex;
     align-items: flex-start;
-    gap: 16px;
+    gap: 10px;
 }
 
 .logo {
-    width: 52px;
-    height: 52px;
+    width: 54px;
+    height: 54px;
     object-fit: contain;
     flex-shrink: 0;
-    margin-top: 1px;
 }
 
 .brand-name {
@@ -64,33 +63,44 @@ body {
 .brand-addr {
     font-size: 8px;
     color: #8a8278;
-    line-height: 1.45;
+    line-height: 1.5;
 }
 
+/* ── KOTAK KANAN ATAS ── */
 .inv-box {
     border: 1px solid #ddd9d4;
     padding: 8px 12px;
-    min-width: 130px;
+    min-width: 148px;
+    max-width: 148px;
     background: #faf9f7;
 }
 
 .inv-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 40px 1fr;
     font-size: 8px;
-    margin-bottom: 3px;
+    margin-bottom: 4px;
+    align-items: start;
 }
 .inv-row:last-child { margin-bottom: 0; }
 
-.inv-key { color: #8a8278; }
+.inv-key {
+    color: #8a8278;
+    white-space: nowrap;
+}
 
 .inv-val {
-    font-weight: 700;
+    font-weight: 500;
     color: #1e1c1a;
-    font-family: 'Courier New', monospace;
     font-size: 8px;
-    text-align: right;
+    word-break: break-word;
+}
+
+.inv-val-reseller {
+    font-weight: 500;
+    color: #1e1c1a;
+    font-size: 8px;
+    word-break: break-word;
 }
 
 /* ── TITLE AREA ── */
@@ -114,33 +124,36 @@ body {
     font-weight: 700;
     color: #1e1c1a;
     letter-spacing: 0.3px;
-}
-
-/* ── OUTLET ROW ── */
-.outlet-row {
-    display: flex;
-    gap: 8px;
-    align-items: baseline;
-    margin-bottom: 5mm;
-}
-
-.outlet-label {
-    font-size: 8px;
-    color: #8a8278;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+}
+
+/* ── INFO ROW (Tanggal + No Invoice) ── */
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4mm;
+    font-size: 9px;
+}
+
+.info-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.info-label {
+    color: #8a8278;
     white-space: nowrap;
 }
 
-.outlet-dots {
-    flex: 1;
-    border-bottom: 1px dotted #c5bfb6;
-    margin-bottom: 2px;
+.info-sep {
+    color: #8a8278;
 }
 
-.outlet-val {
-    font-size: 10px;
+.info-val {
     font-weight: 700;
+    font-size: 10px;
     color: #1e1c1a;
 }
 
@@ -165,42 +178,37 @@ th {
 }
 
 th:nth-child(2), td:nth-child(2) { text-align: center; }
-th:nth-child(3), td:nth-child(3),
-th:nth-child(4), td:nth-child(4) { text-align: right; }
+th:nth-child(3), td:nth-child(3) { text-align: right; }
+th:nth-child(4), td:nth-child(4) { text-align: center; }
 
 td {
     padding: 6px 8px;
     color: #3d3a37;
+    border-bottom: 1px solid #f0ede8;
 }
 
-tbody tr:nth-child(odd) td  { background: #faf9f7; }
-tbody tr:nth-child(even) td { background: #ffffff; }
+tbody tr:last-child td { border-bottom: none; }
 
 /* ── TOTAL ── */
 .total-area {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: baseline;
     margin-bottom: 6mm;
     padding-top: 3mm;
-    border-top: 1px solid #ddd9d4;
-}
-
-.total-block {
-    display: flex;
-    align-items: baseline;
-    gap: 16px;
+    border-top: 1.5px solid #1e1c1a;
 }
 
 .total-label {
-    font-size: 8px;
+    font-size: 10px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #b5ada6;
-    margin-bottom: 2px;
+    letter-spacing: 0.5px;
+    color: #1e1c1a;
 }
 
 .total-value {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 900;
     color: #1e1c1a;
     font-family: 'Courier New', monospace;
@@ -217,15 +225,20 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 
 .sig { text-align: center; width: 110px; }
 
+.sig-label {
+    font-size: 8px;
+    color: #8a8278;
+    margin-bottom: 2px;
+}
+
 .sig-line {
     border-bottom: 1px solid #c5bfb6;
     height: 36px;
     margin-bottom: 5px;
 }
 
-.sig-label {
+.sig-name {
     font-size: 8px;
-    letter-spacing: 0.5px;
     color: #8a8278;
 }
 
@@ -238,7 +251,7 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 </head>
 <body>
 
-{{-- TOMBOL PRINT (tidak ikut cetak) --}}
+{{-- TOMBOL PRINT --}}
 <div class="no-print" style="padding:12px 20px; background:#f0ede8; display:flex; gap:10px; align-items:center;">
     <button onclick="window.print()"
         style="padding:8px 20px; background:#1e1c1a; color:white; border:none; border-radius:4px; font-size:12px; cursor:pointer; font-weight:600;">
@@ -255,6 +268,8 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 
     {{-- HEADER --}}
     <div class="header">
+
+        {{-- KIRI: LOGO + BRAND --}}
         <div class="brand-left">
             <img src="{{ asset('images/logo.jpeg') }}" class="logo" alt="Logo">
             <div>
@@ -266,33 +281,50 @@ tbody tr:nth-child(even) td { background: #ffffff; }
                 </div>
             </div>
         </div>
+
+        {{-- KANAN: NO INVOICE + NAMA & ALAMAT RESELLER --}}
         <div class="inv-box">
             <div class="inv-row">
-                <span class="inv-key">No. Invoice</span>
-                <span class="inv-val">{{ $distribusi->nomor_invoice }}</span>
+                <span class="inv-key">Reseller :</span>
+                <span class="inv-val">{{ $distribusi->reseller->nama_reseller }}</span>
             </div>
             <div class="inv-row">
-                <span class="inv-key">Tanggal</span>
-                <span class="inv-val">
-                    {{ \Carbon\Carbon::parse($distribusi->tanggal)->locale('id')->translatedFormat('d M Y') }}
+                <span class="inv-key">Alamat :</span>
+                <span class="inv-val-reseller">
+                    @if ($distribusi->reseller)
+                        @if ($distribusi->reseller->alamat)
+                            {{ $distribusi->reseller->alamat}}
+                            @if ($distribusi->reseller->kota)
+                            , {{ $distribusi->reseller->kota }}
+                            @endif
+                        @endif
+                    @else
+                        {{ $distribusi->tujuan_lain }}
+                    @endif
                 </span>
             </div>
         </div>
+
     </div>
 
     {{-- TITLE --}}
     <div class="title-area">
         <div class="title-ornament">— ✦ —</div>
-        <div class="title-text">TANDA TERIMA PENGIRIMAN BARANG</div>
+        <div class="title-text">Tanda Terima Pengiriman Barang</div>
     </div>
 
-    {{-- OUTLET --}}
-    <div class="outlet-row">
-        <span class="outlet-label">Kepada</span>
-        <span class="outlet-dots"></span>
-        <span class="outlet-val">
-            {{ $distribusi->reseller ? $distribusi->reseller->nama_reseller : $distribusi->tujuan_lain }}
-        </span>
+    {{-- INFO ROW: TANGGAL (kiri) + NO INVOICE (kanan) --}}
+    <div class="info-row">
+        <div class="info-item">
+            <span class="info-label">Tanggal :</span>
+            <span class="info-val">
+                {{ \Carbon\Carbon::parse($distribusi->tanggal)->locale('id')->translatedFormat('d M Y') }}
+            </span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">No. Invoice :</span>
+            <span class="info-val">{{ $distribusi->nomor_invoice }}</span>
+        </div>
     </div>
 
     {{-- TABEL PRODUK --}}
@@ -317,13 +349,11 @@ tbody tr:nth-child(even) td { background: #ffffff; }
         </tbody>
     </table>
 
-    {{-- TOTAL --}}
+    {{-- TOTAL: label kiri mentok, angka kanan mentok --}}
     <div class="total-area">
-        <div class="total-block">
-            <div class="total-label">Total :</div>
-            <div class="total-value">
-                Rp {{ number_format($distribusi->detail->sum('subtotal'), 0, ',', '.') }}
-            </div>
+        <div class="total-label">Total :</div>
+        <div class="total-value">
+            Rp {{ number_format($distribusi->detail->sum('subtotal'), 0, ',', '.') }}
         </div>
     </div>
 

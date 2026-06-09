@@ -3,8 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <title>Rekap Tujuan Lain — {{ $bulanLabel }}</title>
+
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
 @page {
     size: A5 portrait;
@@ -12,34 +17,34 @@
 }
 
 body {
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: 'Lato', system-ui, -apple-system, sans-serif;
     background: #fff;
     font-size: 10px;
     color: #1e1c1a;
     line-height: 1.6;
 }
 
-/* ── TIAP INVOICE = 1 PAGE ── */
-.invoice-page {
-    width: 148mm;
-    min-height: 210mm;
-    padding: 10mm 11mm;
-    display: flex;
-    flex-direction: column;
-    page-break-after: always;
-}
+/* ───────────────────────────── */
+/* PAGE */
+/* ───────────────────────────── */
 
-/* ── HALAMAN SUMMARY ── */
+.invoice-page,
 .summary-page {
     width: 148mm;
     min-height: 210mm;
     padding: 10mm 11mm;
     display: flex;
     flex-direction: column;
-    page-break-after: avoid;
 }
 
-/* ── HEADER ── */
+.invoice-page {
+    page-break-after: always;
+}
+
+/* ───────────────────────────── */
+/* HEADER */
+/* ───────────────────────────── */
+
 .header {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -51,15 +56,14 @@ body {
 .brand-left {
     display: flex;
     align-items: flex-start;
-    gap: 16px;
+    gap: 10px;
 }
 
 .logo {
-    width: 52px;
-    height: 52px;
+    width: 54px;
+    height: 54px;
     object-fit: contain;
     flex-shrink: 0;
-    margin-top: 1px;
 }
 
 .brand-name {
@@ -73,34 +77,49 @@ body {
 .brand-addr {
     font-size: 8px;
     color: #8a8278;
-    line-height: 1.45;
+    line-height: 1.5;
 }
+
+/* ───────────────────────────── */
+/* BOX KANAN */
+/* ───────────────────────────── */
 
 .inv-box {
     border: 1px solid #ddd9d4;
     padding: 8px 12px;
-    min-width: 130px;
+    min-width: 148px;
+    max-width: 148px;
     background: #faf9f7;
 }
 
 .inv-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 42px 1fr;
     font-size: 8px;
-    margin-bottom: 3px;
-}
-.inv-row:last-child { margin-bottom: 0; }
-.inv-key { color: #8a8278; }
-.inv-val {
-    font-weight: 700;
-    color: #1e1c1a;
-    font-family: 'Courier New', monospace;
-    font-size: 8px;
-    text-align: right;
+    margin-bottom: 4px;
+    align-items: start;
 }
 
-/* ── TITLE AREA ── */
+.inv-row:last-child {
+    margin-bottom: 0;
+}
+
+.inv-key {
+    color: #8a8278;
+    white-space: nowrap;
+}
+
+.inv-val {
+    font-weight: 500;
+    color: #1e1c1a;
+    font-size: 8px;
+    word-break: break-word;
+}
+
+/* ───────────────────────────── */
+/* TITLE */
+/* ───────────────────────────── */
+
 .title-area {
     text-align: center;
     padding: 5mm 0;
@@ -108,130 +127,173 @@ body {
     border-bottom: 1px solid #ddd9d4;
     margin-bottom: 5mm;
 }
+
 .title-ornament {
     font-size: 8px;
     color: #b5ada6;
     letter-spacing: 2px;
     margin-bottom: 3px;
 }
+
 .title-text {
     font-size: 12px;
     font-weight: 700;
     color: #1e1c1a;
+    letter-spacing: .3px;
+    text-transform: uppercase;
 }
 
-/* ── OUTLET ROW ── */
-.outlet-row {
+/* ───────────────────────────── */
+/* INFO ROW */
+/* ───────────────────────────── */
+
+.info-row {
     display: flex;
-    gap: 8px;
+    justify-content: space-between;
     align-items: baseline;
-    margin-bottom: 5mm;
+    margin-bottom: 4mm;
+    font-size: 9px;
 }
-.outlet-label {
-    font-size: 8px;
+
+.info-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.info-label {
     color: #8a8278;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
     white-space: nowrap;
 }
-.outlet-dots {
-    flex: 1;
-    border-bottom: 1px dotted #c5bfb6;
-    margin-bottom: 2px;
-}
-.outlet-val {
-    font-size: 10px;
+
+.info-val {
     font-weight: 700;
+    font-size: 10px;
     color: #1e1c1a;
 }
 
-/* ── TABLE ── */
+/* ───────────────────────────── */
+/* TABLE */
+/* ───────────────────────────── */
+
 table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 4mm;
     font-size: 9px;
 }
-thead tr { background: #1e1c1a; }
+
+thead tr {
+    background: #1e1c1a;
+}
+
 th {
     padding: 6px 8px;
     text-align: left;
     font-weight: 700;
     font-size: 8px;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: .5px;
     color: #faf9f7;
 }
-th:nth-child(2), td:nth-child(2) { text-align: center; }
-th:nth-child(3), td:nth-child(3),
-th:nth-child(4), td:nth-child(4) { text-align: right; }
+
+th:nth-child(2),
+td:nth-child(2) {
+    text-align: center;
+}
+
+th:nth-child(3),
+td:nth-child(3),
+th:nth-child(4),
+td:nth-child(4) {
+    text-align: right;
+}
+
 td {
     padding: 6px 8px;
     color: #3d3a37;
+    border-bottom: 1px solid #f0ede8;
 }
-tbody tr:nth-child(odd) td  { background: #faf9f7; }
-tbody tr:nth-child(even) td { background: #ffffff; }
 
-/* ── TOTAL per invoice ── */
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ───────────────────────────── */
+/* TOTAL */
+/* ───────────────────────────── */
+
 .total-area {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: baseline;
     margin-bottom: 6mm;
     padding-top: 3mm;
-    border-top: 1px solid #ddd9d4;
+    border-top: 1.5px solid #1e1c1a;
 }
-.total-block {
-    display: flex;
-    align-items: baseline;
-    gap: 16px;
-}
+
 .total-label {
-    font-size: 8px;
+    font-size: 10px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #b5ada6;
-    margin-bottom: 2px;
+    letter-spacing: .5px;
+    color: #1e1c1a;
 }
+
 .total-value {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 900;
     color: #1e1c1a;
     font-family: 'Courier New', monospace;
-    letter-spacing: -0.5px;
+    letter-spacing: -.5px;
 }
 
-/* ── SIGNATURES ── */
+/* ───────────────────────────── */
+/* SIGNATURE */
+/* ───────────────────────────── */
+
 .signatures {
     display: flex;
     justify-content: space-between;
     margin-top: auto;
     padding-top: 4mm;
 }
-.sig { text-align: center; width: 110px; }
-.sig-line {
-    border-bottom: 1px solid #c5bfb6;
-    height: 52px;
-    margin-bottom: 5px;
-}
-.sig-label {
-    font-size: 8px;
-    letter-spacing: 0.5px;
-    color: #8a8278;
+
+.sig {
+    text-align: center;
+    width: 110px;
 }
 
-/* ── SUMMARY PAGE ── */
+.sig-label {
+    font-size: 8px;
+    color: #8a8278;
+    margin-bottom: 2px;
+}
+
+.sig-line {
+    border-bottom: 1px solid #c5bfb6;
+    height: 36px;
+    margin-bottom: 5px;
+}
+
+/* ───────────────────────────── */
+/* SUMMARY PAGE */
+/* ───────────────────────────── */
+
 .summary-header {
     text-align: center;
     padding-bottom: 5mm;
     border-bottom: 1px solid #ddd9d4;
     margin-bottom: 6mm;
 }
+
 .summary-title {
     font-size: 13px;
     font-weight: 700;
     color: #1e1c1a;
     margin-bottom: 3px;
 }
+
 .summary-sub {
     font-size: 9px;
     color: #8a8278;
@@ -260,10 +322,14 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 .summary-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 9px;
     margin-bottom: 5mm;
+    font-size: 9px;
 }
-.summary-table thead tr { background: #1e1c1a; }
+
+.summary-table thead tr {
+    background: #1e1c1a;
+}
+
 .summary-table th {
     padding: 6px 8px;
     text-align: left;
@@ -275,14 +341,14 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 }
 /* kolom per posisi summary table */
 .summary-table th:nth-child(1) { text-align: left; }
-.summary-table th:nth-child(2) { text-align: left; }
+.summary-table th:nth-child(2) { text-align: center; }
 .summary-table th:nth-child(3) { text-align: center; }
-.summary-table th:nth-child(4) { text-align: center; }
+.summary-table th:nth-child(4) { text-align: right; }
 .summary-table th:nth-child(5) { text-align: center; }
 
 .summary-table td:nth-child(1) { text-align: left; }
-.summary-table td:nth-child(2) { text-align: left; }
-.summary-table td:nth-child(3) { text-align: left; }
+.summary-table td:nth-child(2) { text-align: center; }
+.summary-table td:nth-child(3) { text-align: center; }
 .summary-table td:nth-child(4) { text-align: right; }
 .summary-table td:nth-child(5) { text-align: center; }
 .summary-table td {
@@ -298,12 +364,10 @@ tbody tr:nth-child(even) td { background: #ffffff; }
     border-top: 2px solid #1e1c1a;
     margin-top: auto;
 }
-
 /* ── RINGKASAN PEMBAYARAN ── */
 .payment-summary {
     display: flex;
     justify-content: flex-end;
-    gap: 0;
     margin-bottom: 4mm;
 }
 .payment-summary-box {
@@ -361,39 +425,54 @@ tbody tr:nth-child(even) td { background: #ffffff; }
     color: #d97706;
 }
 
-/* ── PRINT ── */
+/* bagian summary berikutnya tetap lanjut di Part 2 */
 @media print {
-    body { background: white; }
-    .no-print { display: none !important; }
+    body {
+        background: white;
+    }
+
+    .no-print {
+        display: none !important;
+    }
 }
 </style>
 </head>
+
 <body>
 
-{{-- TOMBOL PRINT --}}
-<div class="no-print" style="padding:12px 20px; background:#f0ede8; display:flex; gap:10px; align-items:center;">
+<div class="no-print"
+    style="padding:12px 20px;background:#f0ede8;display:flex;gap:10px;align-items:center;">
+
     <button onclick="window.print()"
-        style="padding:8px 20px; background:#1e1c1a; color:white; border:none; border-radius:4px; font-size:12px; cursor:pointer; font-weight:600;">
+        style="padding:8px 20px;background:#1e1c1a;color:white;border:none;border-radius:4px;font-size:12px;cursor:pointer;font-weight:600;">
         🖨️ Cetak Rekap Tujuan Lain
     </button>
+
     <button onclick="window.close()"
-        style="padding:8px 16px; background:transparent; color:#6b7280; border:1px solid #c5bfb6; border-radius:4px; font-size:12px; cursor:pointer;">
+        style="padding:8px 16px;background:transparent;color:#6b7280;border:1px solid #c5bfb6;border-radius:4px;font-size:12px;cursor:pointer;">
         Tutup
     </button>
-    <span style="font-size:11px; color:#9a918a; margin-left:4px;">
+
+    <span style="font-size:11px;color:#9a918a;margin-left:4px;">
         Tujuan Lain — {{ $bulanLabel }}
     </span>
 </div>
 
-{{-- TIAP INVOICE = 1 HALAMAN --}}
 @foreach ($distribusiList as $distribusi)
+
 <div class="invoice-page">
 
+
+    {{-- HEADER --}}
     <div class="header">
+
+        {{-- KIRI --}}
         <div class="brand-left">
             <img src="{{ asset('images/logo.jpeg') }}" class="logo" alt="Logo">
+
             <div>
                 <div class="brand-name">Bolu Legenda Malang</div>
+
                 <div class="brand-addr">
                     Perumahan Oma Campus A8 No 4<br>
                     Landungsari Dau Malang<br>
@@ -401,31 +480,54 @@ tbody tr:nth-child(even) td { background: #ffffff; }
                 </div>
             </div>
         </div>
+
+        {{-- KANAN --}}
         <div class="inv-box">
             <div class="inv-row">
-                <span class="inv-key">No. Invoice</span>
-                <span class="inv-val">{{ $distribusi->nomor_invoice }}</span>
-            </div>
-            <div class="inv-row">
-                <span class="inv-key">Tanggal</span>
+                <span class="inv-key">Tujuan :</span>
                 <span class="inv-val">
-                    {{ \Carbon\Carbon::parse($distribusi->tanggal)->locale('id')->translatedFormat('d M Y') }}
+                    {{ $distribusi->tujuan_lain }}
+                </span>
+            </div>
+
+            <div class="inv-row">
+                <span class="inv-key">Status :</span>
+                <span class="inv-val">
+                    {{ ucfirst($distribusi->status_pembayaran ?? 'Belum Bayar') }}
                 </span>
             </div>
         </div>
+
     </div>
 
+    {{-- TITLE --}}
     <div class="title-area">
         <div class="title-ornament">— ✦ —</div>
-        <div class="title-text">TANDA TERIMA BARANG</div>
+        <div class="title-text">Tanda Terima Pengiriman Barang</div>
     </div>
 
-    <div class="outlet-row">
-        <span class="outlet-label">Kepada</span>
-        <span class="outlet-dots"></span>
-        <span class="outlet-val">{{ $distribusi->tujuan_lain }}</span>
+    {{-- INFO ROW --}}
+    <div class="info-row">
+
+        <div class="info-item">
+            <span class="info-label">Tanggal :</span>
+
+            <span class="info-val">
+                {{ \Carbon\Carbon::parse($distribusi->tanggal)->locale('id')->translatedFormat('d M Y') }}
+            </span>
+        </div>
+
+        <div class="info-item">
+            <span class="info-label">No. Invoice :</span>
+
+            <span class="info-val">
+                {{ $distribusi->nomor_invoice }}
+            </span>
+        </div>
+
     </div>
 
+    {{-- TABEL PRODUK --}}
     <table>
         <thead>
             <tr>
@@ -435,49 +537,70 @@ tbody tr:nth-child(even) td { background: #ffffff; }
                 <th>Jumlah</th>
             </tr>
         </thead>
+
         <tbody>
             @foreach ($distribusi->detail as $item)
             <tr>
                 <td>{{ $item->produk->nama_produk ?? '-' }}</td>
+
                 <td>{{ $item->jumlah }}</td>
-                <td>Rp {{ number_format($item->harga, 0, ',', '.') }}</td>
-                <td>Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+
+                <td>
+                    Rp {{ number_format($item->harga, 0, ',', '.') }}
+                </td>
+
+                <td>
+                    Rp {{ number_format($item->subtotal, 0, ',', '.') }}
+                </td>
             </tr>
             @endforeach
         </tbody>
     </table>
 
+    {{-- TOTAL --}}
     <div class="total-area">
-        <div class="total-block">
-            <div class="total-label">Total :</div>
-            <div class="total-value">
-                Rp {{ number_format($distribusi->detail->sum('subtotal'), 0, ',', '.') }}
-            </div>
+
+        <div class="total-label">
+            Total :
         </div>
+
+        <div class="total-value">
+            Rp {{ number_format($distribusi->detail->sum('subtotal'), 0, ',', '.') }}
+        </div>
+
     </div>
 
+    {{-- TANDA TANGAN --}}
     <div class="signatures">
+
         <div class="sig">
             <div class="sig-label">Penerima,</div>
             <div class="sig-line"></div>
         </div>
+
         <div class="sig">
             <div class="sig-label">Pengirim,</div>
             <div class="sig-line"></div>
         </div>
+
     </div>
 
 </div>
+
 @endforeach
 
-{{-- HALAMAN TERAKHIR: SUMMARY GRAND TOTAL --}}
+{{-- HALAMAN REKAP --}}
 <div class="summary-page">
 
+    {{-- HEADER --}}
     <div class="header">
+
         <div class="brand-left">
             <img src="{{ asset('images/logo.jpeg') }}" class="logo" alt="Logo">
+
             <div>
                 <div class="brand-name">Bolu Legenda Malang</div>
+
                 <div class="brand-addr">
                     Perumahan Oma Campus A8 No 4<br>
                     Landungsari Dau Malang<br>
@@ -485,16 +608,28 @@ tbody tr:nth-child(even) td { background: #ffffff; }
                 </div>
             </div>
         </div>
+
     </div>
 
+    {{-- TITLE --}}
     <div class="summary-header">
-        <div class="summary-title">REKAP DISTRIBUSI CUSTOMER</div>
-        <div class="summary-sub">{{ $bulanLabel }}</div>
+        <div class="summary-title">
+            REKAP DISTRIBUSI CUSTOMER
+        </div>
+
+        <div class="summary-sub">
+            {{ $bulanLabel }}
+        </div>
     </div>
 
     <div class="summary-reseller">
-        <div class="summary-reseller-label">Kategori</div>
-        <div class="summary-reseller-val">Semua Customer</div>
+        <div class="summary-reseller-label">
+            Kategori
+        </div>
+
+        <div class="summary-reseller-val">
+            Semua Customer
+        </div>
     </div>
 
     <table class="summary-table">
@@ -507,64 +642,96 @@ tbody tr:nth-child(even) td { background: #ffffff; }
                 <th>Status</th>
             </tr>
         </thead>
+
         <tbody>
             @foreach ($distribusiList as $distribusi)
             <tr>
-                <td style="font-family:'Courier New',monospace; font-size:8px;">
+
+                <td>
                     {{ $distribusi->nomor_invoice }}
                 </td>
-                <td>{{ $distribusi->tujuan_lain }}</td>
+
+                <td>
+                    {{ $distribusi->tujuan_lain }}
+                </td>
+
                 <td>
                     {{ \Carbon\Carbon::parse($distribusi->tanggal)->locale('id')->translatedFormat('d M Y') }}
                 </td>
+
                 <td>
                     Rp {{ number_format($distribusi->detail->sum('subtotal'), 0, ',', '.') }}
                 </td>
-                <td style="text-align:center;">
+
+                <td>
                     @if ($distribusi->status_pembayaran === 'lunas')
-                        <span class="badge badge-lunas">✓ Lunas</span>
+                        <span class="badge badge-lunas">
+                            ✓ Lunas
+                        </span>
                     @else
-                        <span class="badge badge-belum">⏳ Belum Bayar</span>
+                        <span class="badge badge-belum">
+                            ⏳ Belum Bayar
+                        </span>
                     @endif
                 </td>
+
             </tr>
             @endforeach
         </tbody>
     </table>
 
+    @php
+        $totalLunas = $distribusiList
+            ->where('status_pembayaran', 'lunas')
+            ->sum(fn($d) => $d->detail->sum('subtotal'));
+
+        $totalBelum = $distribusiList
+            ->where('status_pembayaran', '!=', 'lunas')
+            ->sum(fn($d) => $d->detail->sum('subtotal'));
+
+        $grandTotal = $totalLunas + $totalBelum;
+    @endphp
+
     <div class="grand-total-area">
 
-        {{-- RINGKASAN LUNAS / BELUM BAYAR --}}
-        @php
-            $totalLunas  = $distribusiList->where('status_pembayaran', 'lunas')->sum(fn($d) => $d->detail->sum('subtotal'));
-            $totalBelum  = $distribusiList->where('status_pembayaran', '!=', 'lunas')->sum(fn($d) => $d->detail->sum('subtotal'));
-            $grandTotal  = $totalLunas + $totalBelum;
-        @endphp
+        <div class="payment-summary">
 
-        <div style="width:100%;">
-            <div class="payment-summary">
-                <div class="payment-summary-box">
-                    <div class="payment-row">
-                        <span class="payment-row-label">Total Lunas</span>
-                        <span class="payment-row-value lunas">
-                            Rp {{ number_format($totalLunas, 0, ',', '.') }}
-                        </span>
-                    </div>
-                    <div class="payment-row">
-                        <span class="payment-row-label">Total Belum Bayar</span>
-                        <span class="payment-row-value belum">
-                            Rp {{ number_format($totalBelum, 0, ',', '.') }}
-                        </span>
-                    </div>
+            <div class="payment-summary-box">
+
+                <div class="payment-row">
+                    <span class="payment-row-label">
+                        Total Lunas
+                    </span>
+
+                    <span class="payment-row-value lunas">
+                        Rp {{ number_format($totalLunas, 0, ',', '.') }}
+                    </span>
                 </div>
+
+                <div class="payment-row">
+                    <span class="payment-row-label">
+                        Total Belum Bayar
+                    </span>
+
+                    <span class="payment-row-value belum">
+                        Rp {{ number_format($totalBelum, 0, ',', '.') }}
+                    </span>
+                </div>
+
             </div>
 
-            <div class="grand-total-block">
-                <div class="grand-total-label">Grand Total</div>
-                <div class="grand-total-value">
-                    Rp {{ number_format($grandTotal, 0, ',', '.') }}
-                </div>
+        </div>
+
+        <div class="grand-total-block">
+
+            <div class="grand-total-label">
+                Grand Total
             </div>
+
+            <div class="grand-total-value">
+                Rp {{ number_format($grandTotal, 0, ',', '.') }}
+            </div>
+
         </div>
 
     </div>
@@ -573,3 +740,4 @@ tbody tr:nth-child(even) td { background: #ffffff; }
 
 </body>
 </html>
+```
