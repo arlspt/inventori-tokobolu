@@ -390,9 +390,9 @@ tbody tr:last-child td { border-bottom: none; }
         style="padding:8px 20px; background:#1e1c1a; color:white; border:none; border-radius:4px; font-size:12px; cursor:pointer; font-weight:600;">
         🖨️ Cetak Rekap Bulanan
     </button>
-    <button onclick="window.close()"
+    <button onclick="window.history.back()"
         style="padding:8px 16px; background:transparent; color:#6b7280; border:1px solid #c5bfb6; border-radius:4px; font-size:12px; cursor:pointer;">
-        Tutup
+        Kembali
     </button>
     <span style="font-size:11px; color:#9a918a; margin-left:4px;">
         {{ $reseller->nama_reseller }} — {{ $bulanLabel }}
@@ -405,7 +405,7 @@ tbody tr:last-child td { border-bottom: none; }
 
     <div class="header">
         <div class="brand-left">
-            <img src="{{ asset('images/logo.jpeg') }}" class="logo" alt="Logo">
+            <img src="{{ asset('images/logo_login_hitam.png') }}" class="logo" alt="Logo">
             <div>
                 <div class="brand-name">Bolu Legenda Malang</div>
                 <div class="brand-addr">
@@ -497,7 +497,7 @@ tbody tr:last-child td { border-bottom: none; }
 
     <div class="header">
         <div class="brand-left">
-            <img src="{{ asset('images/logo.jpeg') }}" class="logo" alt="Logo">
+            <img src="{{ asset('images/logo_login_hitam.png') }}" class="logo" alt="Logo">
             <div>
                 <div class="brand-name">Bolu Legenda Malang</div>
                 <div class="brand-addr">

@@ -271,7 +271,7 @@ tbody tr:last-child td { border-bottom: none; }
 
         {{-- KIRI: LOGO + BRAND --}}
         <div class="brand-left">
-            <img src="{{ asset('images/logo.jpeg') }}" class="logo" alt="Logo">
+            <img src="{{ asset('images/logo_login_hitam.png') }}" class="logo" alt="Logo">
             <div>
                 <div class="brand-name">Bolu Legenda Malang</div>
                 <div class="brand-addr">
@@ -285,24 +285,27 @@ tbody tr:last-child td { border-bottom: none; }
         {{-- KANAN: NO INVOICE + NAMA & ALAMAT RESELLER --}}
         <div class="inv-box">
             <div class="inv-row">
-                <span class="inv-key">Reseller :</span>
-                <span class="inv-val">{{ $distribusi->reseller->nama_reseller }}</span>
-            </div>
+    <span class="inv-key">
+        {{ $distribusi->reseller ? 'Reseller :' : 'Customer :' }}
+    </span>
+
+    <span class="inv-val">
+        {{ $distribusi->reseller?->nama_reseller ?? $distribusi->tujuan_lain }}
+    </span>
+</div>
             <div class="inv-row">
-                <span class="inv-key">Alamat :</span>
-                <span class="inv-val-reseller">
-                    @if ($distribusi->reseller)
-                        @if ($distribusi->reseller->alamat)
-                            {{ $distribusi->reseller->alamat}}
-                            @if ($distribusi->reseller->kota)
-                            , {{ $distribusi->reseller->kota }}
-                            @endif
-                        @endif
-                    @else
-                        {{ $distribusi->tujuan_lain }}
-                    @endif
-                </span>
-            </div>
+    <span class="inv-key">Alamat :</span>
+    <span class="inv-val-reseller">
+        @if($distribusi->reseller)
+            {{ $distribusi->reseller->alamat }}
+            @if($distribusi->reseller->kota)
+                , {{ $distribusi->reseller->kota }}
+            @endif
+        @else
+            -
+        @endif
+    </span>
+</div>
         </div>
 
     </div>

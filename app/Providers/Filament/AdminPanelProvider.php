@@ -19,6 +19,8 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Filament\Support\Assets\Css;
 use Filament\Support\Facades\FilamentAsset;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Support\Facades\Blade;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -34,7 +36,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogo(asset('images/logo_header_hitam.png'))     // tampilkan logo
             ->darkModeBrandLogo(asset('images/logo_header_putih.png')) // logo untuk dark mode
             ->brandLogoHeight('42px')                  // ukuran logo
-            ->favicon(asset('images/logo.jpeg')) // logo di tab browser
+            ->favicon(asset('images/logo_header_hitam.jpeg')) // logo di tab browser
             ->colors([
                 'primary' => Color::hex('#16a34a'), // Ubah warna utama di sini
             ])
@@ -193,6 +195,9 @@ background: #22C55E;}
 .fi-simple-layout {
     background-color: #F3FAF7;
 }
+.fi-simple-layout .fi-logo {
+    display: none !important;
+}
 
 .fi-simple-main {
     background-color: #ffffff;
@@ -201,10 +206,65 @@ background: #22C55E;}
 .dark .fi-simple-layout {
     background-color: #0F1A16;
 }
+.dark .fi-simple-layout .fi-logo {
+    display: none !important;
+}
 
 .dark .fi-simple-main {
     background-color: #16231E;
     border: 1px solid #294237;
+}
+
+/* ===== SEMBUNYIKAN HEADING SIGN IN BAWAAN ===== */
+.fi-simple-page > .fi-simple-page-heading {
+    display: none !important;
+}
+
+/* ===== UNTUK COVER SEMUA KEMUNGKINAN SELECTOR ===== */
+.fi-simple-layout h1,
+.fi-simple-layout h2 {
+    display: none !important;
+}
+
+/* ===== LOGIN HEADER ===== */
+
+.custom-login-header{
+    text-align:center;
+    margin-bottom:20px;
+}
+
+.custom-login-title{
+    font-size:20px;
+    font-weight:700;
+    margin-top:8px;
+    color:#374151;
+}
+
+/* logo */
+
+.login-logo-light,
+.login-logo-dark{
+    height:100px;
+    margin:0 auto;
+    display:block;
+}
+
+.login-logo-dark{
+    display:none;
+}
+
+/* ===== DARK MODE ===== */
+
+.dark .login-logo-light{
+    display:none;
+}
+
+.dark .login-logo-dark{
+    display:block;
+}
+
+.dark .custom-login-title{
+    color:#ffffff;
 }
 
 /* ===== CONTENT AREA ===== */
@@ -216,11 +276,32 @@ background: #F3FAF7 ; /* hijau soft sangat muda */
 }
    /* ===== SEMBUNYIKAN TEKS LARAVEL ===== */
 // div.fi-logo {
-//     font-size: 0 !important;
+//     display: none !important;
 // }
     </style>'
             )
+            ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
+                fn(): string => Blade::render('
+        <div class="custom-login-header">
+            <img
+                src="' . asset('images/logo_login_hitam.png') . '"
+                class="login-logo-light"
+                alt="Logo"
+            />
 
+            <img
+                src="' . asset('images/logo_login_putih.png') . '"
+                class="login-logo-dark"
+                alt="Logo"
+            />
+
+            <div class="custom-login-title">
+                Sign In
+            </div>
+        </div>
+    ')
+            )
             ->authMiddleware([
                 Authenticate::class,
             ]);

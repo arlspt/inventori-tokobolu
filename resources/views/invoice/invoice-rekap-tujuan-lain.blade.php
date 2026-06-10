@@ -596,7 +596,7 @@ tbody tr:last-child td {
     <div class="header">
 
         <div class="brand-left">
-            <img src="{{ asset('images/logo.jpeg') }}" class="logo" alt="Logo">
+            <img src="{{ asset('images/logo_login_hitam.png') }}" class="logo" alt="Logo">
 
             <div>
                 <div class="brand-name">Bolu Legenda Malang</div>

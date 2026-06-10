@@ -373,8 +373,10 @@ class DistribusiResource extends Resource
 
                         FormSelect::make('reseller_id')
                             ->label('Reseller')
-                            ->options(\App\Models\Reseller::pluck('nama_reseller', 'id'))
-                            ->searchable()
+                            ->options(
+                                ['all' => 'Semua Reseller'] +
+                                    \App\Models\Reseller::pluck('nama_reseller', 'id')->toArray()
+                            )->searchable()
                             ->required()
                             ->placeholder('Pilih Reseller')
                             ->visible(fn($get) => $get('tipe_tujuan') === 'reseller')
@@ -390,16 +392,29 @@ class DistribusiResource extends Resource
                                 if (!$tipe) return [];
 
                                 if ($tipe === 'reseller') {
+
                                     $resellerId = $get('reseller_id');
-                                    if (!$resellerId) return [];
-                                    // bulan dari distribusi reseller ini
-                                    return Distribusi::where('reseller_id', $resellerId)
-                                        ->where('status', '!=', 'dibatalkan')
+
+                                    if (!$resellerId) {
+                                        return [];
+                                    }
+
+                                    $query = Distribusi::where('status', '!=', 'dibatalkan');
+
+                                    if ($resellerId !== 'all') {
+                                        $query->where('reseller_id', $resellerId);
+                                    }
+
+                                    return $query
                                         ->selectRaw('DATE_FORMAT(tanggal, "%Y-%m") as bulan_key')
                                         ->distinct()
                                         ->orderByRaw('bulan_key DESC')
                                         ->pluck('bulan_key')
-                                        ->mapWithKeys(fn($b) => [$b => Carbon::createFromFormat('Y-m', $b)->locale('id')->translatedFormat('F Y')])
+                                        ->mapWithKeys(fn($b) => [
+                                            $b => Carbon::createFromFormat('Y-m', $b)
+                                                ->locale('id')
+                                                ->translatedFormat('F Y')
+                                        ])
                                         ->toArray();
                                 }
 

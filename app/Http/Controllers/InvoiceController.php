@@ -31,9 +31,13 @@ class InvoiceController extends Controller
         if ($request->tipe_tujuan === 'tujuan_lain') {
             return $this->rekapBulananTujuanLain($request);
         }
+        // jika reseller_id = all, maka tampilkan semua reseller
+        if ($request->reseller_id === 'all') {
+            return $this->rekapSemuaReseller($request);
+        }
 
         $request->validate([
-            'reseller_id' => 'required|exists:reseller,id',
+            'reseller_id' => 'required',
             'bulan'       => 'required|date_format:Y-m',
         ]);
 
@@ -93,5 +97,59 @@ class InvoiceController extends Controller
             'distribusiList',
             'bulanLabel'
         ));
+    }
+    private function rekapSemuaReseller(Request $request)
+    {
+        $request->validate([
+            'bulan' => 'required|date_format:Y-m',
+        ]);
+
+        $bulan = Carbon::createFromFormat('Y-m', $request->bulan);
+
+        $bulanLabel = $bulan
+            ->locale('id')
+            ->translatedFormat('F Y');
+
+        $rekap = Distribusi::with([
+            'reseller',
+            'detail',
+        ])
+            ->whereNotNull('reseller_id')
+            ->where('status', '!=', 'dibatalkan')
+            ->whereYear('tanggal', $bulan->year)
+            ->whereMonth('tanggal', $bulan->month)
+            ->get()
+            ->groupBy('reseller_id')
+            ->map(function ($items) {
+
+                $reseller = $items->first()->reseller;
+
+                $totalInvoice = $items->count();
+
+                $totalQty = $items->sum(function ($distribusi) {
+                    return $distribusi->detail->sum('jumlah');
+                });
+
+                $totalHarga = $items->sum(function ($distribusi) {
+                    return $distribusi->detail->sum('subtotal');
+                });
+
+                return [
+                    'nama_reseller' => $reseller->nama_reseller,
+                    'total_invoice' => $totalInvoice,
+                    'total_qty'     => $totalQty,
+                    'total_harga'   => $totalHarga,
+                ];
+            })
+            ->sortByDesc('total_harga')
+            ->values();
+
+        return view(
+            'invoice.invoice-rekap-semua-reseller',
+            compact(
+                'rekap',
+                'bulanLabel'
+            )
+        );
     }
 }
