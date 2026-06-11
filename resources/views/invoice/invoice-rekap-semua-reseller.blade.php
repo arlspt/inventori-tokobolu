@@ -314,9 +314,9 @@ tbody tr:nth-child(even) td {
     </button>
 
     <button
-        onclick="window.close()"
+        onclick="window.history.back()"
         class="close-btn">
-        Tutup
+        Kembali
     </button>
 
 </div>

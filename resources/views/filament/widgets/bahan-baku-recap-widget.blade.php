@@ -44,7 +44,7 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                         @foreach ($recap as $item)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                            <tr class="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
                                 <td class="px-4 py-2.5 font-medium text-gray-800 dark:text-gray-200">
                                     {{ $item['nama'] }}
                                 </td>

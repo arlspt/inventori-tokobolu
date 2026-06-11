@@ -72,101 +72,98 @@
     </x-filament::section>
 
     {{-- MODAL POPUP DETAIL LENGKAP --}}
-    @if ($showModal)
-        <div
-            class="fixed inset-0 z-50 flex items-center justify-center p-4"
-            wire:click.self="closeModal"
-        >
-            {{-- BACKDROP --}}
-            <div class="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
+@if ($showModal)
+    {{-- BACKDROP --}}
+    <div
+        class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        wire:click="closeModal"
+    ></div>
 
-            {{-- MODAL CONTENT --}}
-            <div class="
-        relative
-        w-full max-w-2xl
-        max-h-[85vh]
-        flex flex-col
-        rounded-2xl
-        shadow-2xl
-        z-10
-rounded-lg
-        bg-white
-        dark:bg-gray-900
-
-        border border-gray-200
-        dark:border-gray-700
-    ">
-                {{-- MODAL HEADER --}}
-                <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-gray-700">
-                    <div>
-                        <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                            Stok Bahan Baku — Lengkap
-                        </h3>
-                        <p class="text-xs text-gray-400 mt-0.5">
-                            {{ collect($this->getBulanOptions())->get($bulanHistory, 'Bulan ini') }}
-                        </p>
-                    </div>
-                    <button
-                        wire:click="closeModal"
-                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                    >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
+    {{-- MODAL CONTENT --}}
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="
+            pointer-events-auto
+            w-full
+            max-w-2xl
+            max-h-[85vh]
+            flex flex-col
+            rounded-lg
+            shadow-2xl
+            bg-white
+            dark:bg-gray-900
+            border border-gray-200
+            dark:border-gray-700
+        ">
+            {{-- MODAL HEADER --}}
+            <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                        Stok Bahan Baku — Lengkap
+                    </h3>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        {{ collect($this->getBulanOptions())->get($bulanHistory, 'Bulan ini') }}
+                    </p>
                 </div>
+                <button
+                    wire:click="closeModal"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
 
-                {{-- MODAL BODY --}}
-                <div class="overflow-y-auto flex-1 p-6">
-                    <div class="overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700">
-                        <table class="w-full text-xs">
-                            <thead>
-                                <tr class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-200">
-                                    <th class="text-left px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Bahan Baku</th>
-                                    <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Stok</th>
-                                    <th class="text-center px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Status</th>
+            {{-- MODAL BODY --}}
+            <div class="overflow-y-auto flex-1 p-6">
+                <div class="overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                <th class="text-left px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Bahan Baku</th>
+                                <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Stok</th>
+                                <th class="text-center px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                            @foreach ($this->getStokHistory() as $bahan)
+                                <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+                                    <td class="px-4 py-2.5 text-gray-700 dark:text-gray-200">
+                                        {{ $bahan['nama'] }}
+                                    </td>
+                                    <td class="px-4 py-2.5 text-right font-semibold
+                                        {{ $bahan['low'] ? 'text-red-500' : 'text-gray-800 dark:text-gray-200' }}">
+                                        {{ $bahan['stok_label'] }}
+                                    </td>
+                                    <td class="px-4 py-2.5 text-center">
+                                        @if ($bahan['low'])
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                                                Menipis
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400">
+                                                Aman
+                                            </span>
+                                        @endif
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                                @foreach ($this->getStokHistory() as $bahan)
-                                    <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
-                                        <td class="px-4 py-2.5 text-gray-700 dark:text-gray-200">
-                                            {{ $bahan['nama'] }}
-                                        </td>
-                                        <td class="px-4 py-2.5 text-right font-semibold
-                                            {{ $bahan['low'] ? 'text-red-500' : 'text-gray-800 dark:text-gray-200' }}">
-                                            {{ $bahan['stok_label'] }}
-                                        </td>
-                                        <td class="px-4 py-2.5 text-center">
-                                            @if ($bahan['low'])
-                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                                                    Menipis
-                                                </span>
-                                            @else
-                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400">
-                                                    Aman
-                                                </span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
+            </div>
 
-                {{-- MODAL FOOTER --}}
-                <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end bg-gray-50/50 dark:bg-gray-800/50 rounded-b-2xl">
-                    <button
-                        wire:click="closeModal"
-                        class="text-xs px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-200 rounded-lg transition-colors"
-                    >
-                        Tutup
-                    </button>
-                </div>
-
+            {{-- MODAL FOOTER --}}
+            <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end bg-gray-50/50 dark:bg-gray-800/50 rounded-b-2xl">
+                <button
+                    wire:click="closeModal"
+                    class="text-xs px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-200 rounded-lg transition-colors"
+                >
+                    Tutup
+                </button>
             </div>
         </div>
-    @endif
+    </div>
+@endif
 
 </x-filament-widgets::widget>

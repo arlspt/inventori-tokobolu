@@ -60,7 +60,7 @@ class InvoiceController extends Controller
             abort(404, 'Tidak ada distribusi untuk reseller dan bulan yang dipilih.');
         }
 
-        // ✅ pastikan setiap distribusi detail-nya ter-load dengan benar
+        // pastikan setiap distribusi detail-nya ter-load dengan benar
         $distribusiList->each(function ($distribusi) {
             $distribusi->setRelation('detail', $distribusi->detail->values());
         });

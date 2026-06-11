@@ -31,14 +31,18 @@ body {
 .invoice-page,
 .summary-page {
     width: 148mm;
-    min-height: 210mm;
+    min-height: 200mm;
     padding: 10mm 11mm;
     display: flex;
     flex-direction: column;
 }
 
 .invoice-page {
-    page-break-after: always;
+    width: 148mm;
+    min-height: 210mm;
+    padding: 10mm 11mm;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ───────────────────────────── */
@@ -341,13 +345,13 @@ tbody tr:last-child td {
 }
 /* kolom per posisi summary table */
 .summary-table th:nth-child(1) { text-align: left; }
-.summary-table th:nth-child(2) { text-align: center; }
+.summary-table th:nth-child(2) { text-align: left; }
 .summary-table th:nth-child(3) { text-align: center; }
 .summary-table th:nth-child(4) { text-align: right; }
 .summary-table th:nth-child(5) { text-align: center; }
 
 .summary-table td:nth-child(1) { text-align: left; }
-.summary-table td:nth-child(2) { text-align: center; }
+.summary-table td:nth-child(2) { text-align: left; }
 .summary-table td:nth-child(3) { text-align: center; }
 .summary-table td:nth-child(4) { text-align: right; }
 .summary-table td:nth-child(5) { text-align: center; }
@@ -468,7 +472,7 @@ tbody tr:last-child td {
 
         {{-- KIRI --}}
         <div class="brand-left">
-            <img src="{{ asset('images/logo.jpeg') }}" class="logo" alt="Logo">
+            <img src="{{ asset('images/logo_login_hitam.png') }}" class="logo" alt="Logo">
 
             <div>
                 <div class="brand-name">Bolu Legenda Malang</div>
@@ -493,8 +497,8 @@ tbody tr:last-child td {
             <div class="inv-row">
                 <span class="inv-key">Status :</span>
                 <span class="inv-val">
-                    {{ ucfirst($distribusi->status_pembayaran ?? 'Belum Bayar') }}
-                </span>
+    {{ $distribusi->status_pembayaran === 'lunas' ? 'Lunas' : 'Belum Bayar' }}
+    </span>
             </div>
         </div>
 
@@ -584,8 +588,10 @@ tbody tr:last-child td {
         </div>
 
     </div>
-
 </div>
+@if(!$loop->last)
+    <div style="page-break-after: always;"></div>
+@endif
 
 @endforeach
 
