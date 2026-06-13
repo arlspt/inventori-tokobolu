@@ -32,6 +32,46 @@ class PengadaanResource extends Resource
     protected static ?string $modelLabel = 'Pengadaan';
     protected static ?string $pluralModelLabel = 'Pengadaan Bahan Baku';
 
+    // Cek akses navigasi (apakah modul muncul di sidebar)
+    public static function canAccess(): bool
+    {
+        /** @var \App\Models\User|null $user */
+
+        $user = Auth::user();
+        if (!$user) return false;
+        if ($user->hasRole('admin')) return true;
+        // karyawan selalu bisa lihat (navigasi tetap muncul)
+        return $user->hasRole('karyawan');
+    }
+
+    // Karyawan tidak bisa create kalau modul tidak diizinkan
+    public static function canCreate(): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        if ($user->hasRole('admin')) return true;
+        return $user->dapatAksesModul('pengadaan');
+    }
+
+    // Karyawan tidak pernah bisa edit
+    public static function canEdit($record): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        return $user->hasRole('admin');
+    }
+
+    // Karyawan tidak pernah bisa delete
+    public static function canDelete($record): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        return $user->hasRole('admin');
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -263,7 +303,17 @@ class PengadaanResource extends Resource
 
                 TextColumn::make('user.name')
                     ->label('Dibuat Oleh')
-                    ->alignCenter(),
+                    ->formatStateUsing(function ($state, $record) {
+                        $role = $record->user?->roles->first()?->name;
+                        $roleLabel = match ($role) {
+                            'admin' => 'Admin',
+                            'karyawan' => 'Karyawan',
+                            default => ucfirst($role ?? '-'),
+                        };
+                        return $state . ' (' . $roleLabel . ')';
+                    })
+                    ->searchable()
+                    ->alignRight(),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('supplier_id')

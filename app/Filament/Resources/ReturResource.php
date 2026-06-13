@@ -23,6 +23,7 @@ use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\TextEntry;
+use Illuminate\Support\Facades\Auth;
 
 class ReturResource extends Resource
 {
@@ -31,6 +32,65 @@ class ReturResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-arrow-uturn-left';
     protected static ?string $navigationLabel = 'Retur';
     protected static ?string $pluralModelLabel = 'Retur';
+
+    // Cek akses navigasi (apakah modul muncul di sidebar)
+    public static function canAccess(): bool
+    {
+        /** @var \App\Models\User|null $user */
+
+        $user = Auth::user();
+        if (!$user) return false;
+        if ($user->hasRole('admin')) return true;
+        // karyawan selalu bisa lihat (navigasi tetap muncul)
+        return $user->hasRole('karyawan');
+    }
+
+    // Karyawan tidak bisa create kalau modul tidak diizinkan
+    public static function canCreate(): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        if ($user->hasRole('admin')) return true;
+        return $user->dapatAksesModul('retur');
+    }
+
+    // Karyawan tidak pernah bisa edit
+    public static function canEdit($record): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        return $user->hasRole('admin');
+    }
+
+    // Karyawan tidak pernah bisa delete
+    public static function canDelete($record): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        return $user->hasRole('admin');
+    }
+
+    protected static function bolehAksiRetur(): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        return $user->hasRole('admin')
+            || $user->dapatAksesModul('retur');
+    }
+
+    protected static function bolehCetak(): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) {
+            return false;
+        }
+        return $user->hasRole('admin');
+    }
 
     public static function form(Form $form): Form
     {
@@ -308,7 +368,7 @@ class ReturResource extends Resource
                     ->orderByRaw('CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END ASC')
                     ->orderBy('created_at', 'desc')
             )
-            ->searchPlaceholder('Cari Distribusi')
+            ->searchPlaceholder('Cari Distribusi...')
             ->recordClasses(
                 fn($record) =>
                 $record->deleted_at ? 'opacity-70 text-gray-700' : null
@@ -370,7 +430,19 @@ class ReturResource extends Resource
                     ->getStateUsing(fn($record) => $record->detail->sum('jumlah')),
 
                 TextColumn::make('user.name')
-                    ->label('Dibuat Oleh'),
+                    ->label('Dibuat Oleh')
+                    ->formatStateUsing(function ($state, $record) {
+
+                        $role = $record->user?->roles->first()?->name;
+
+                        $roleLabel = match ($role) {
+                            'admin' => 'Admin',
+                            'karyawan' => 'Karyawan',
+                            default => ucfirst($role ?? '-'),
+                        };
+
+                        return $state . ' (' . $roleLabel . ')';
+                    }),
 
                 TextColumn::make('status')
                     ->label('Status')
@@ -385,6 +457,7 @@ class ReturResource extends Resource
             // REKAP BULANAN DI HEADER TABLE
             ->headerActions([
                 \Filament\Tables\Actions\Action::make('rekap_bulanan_retur')
+                    ->visible(fn() => static::bolehCetak())
                     ->label('Rekap Bulanan Retur')
                     ->icon('heroicon-o-document-chart-bar')
                     ->color('gray')
@@ -478,11 +551,13 @@ class ReturResource extends Resource
                         ->color('info')
                         ->modalFooterActions([
                             \Filament\Tables\Actions\Action::make('cetak_dari_view')
+                                ->visible(fn() => static::bolehCetak())
                                 ->label('Cetak Retur')
                                 ->icon('heroicon-o-printer')
                                 ->color('gray')
                                 ->url(fn($record) => route('retur.cetak', $record->id))
-                                ->openUrlInNewTab(),
+                                ->openUrlInNewTab()
+                                ->visible(fn() => static::bolehCetak()),
                         ])
                         ->infolist([
                             InfoSection::make('Data Distribusi')
@@ -527,6 +602,7 @@ class ReturResource extends Resource
 
                     // ✅ CETAK RETUR
                     Tables\Actions\Action::make('cetak_retur')
+                        ->visible(fn() => static::bolehCetak())
                         ->label('Cetak Retur')
                         ->icon('heroicon-o-printer')
                         ->color('gray')
@@ -544,8 +620,11 @@ class ReturResource extends Resource
                         ->modalSubmitActionLabel('Ya, Batalkan')
                         ->modalCancelActionLabel('Tidak')
                         ->action(fn($record) => $record->delete())
-                        ->visible(fn($record) => $record->deleted_at === null),
-
+                        ->visible(
+                            fn($record) =>
+                            $record->deleted_at === null
+                                && static::bolehCetak()
+                        ),
                 ])->color('black'),
             ])
             ->actionsColumnLabel('Aksi');

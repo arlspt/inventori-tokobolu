@@ -11,12 +11,13 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Actions\ActionGroup;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Spatie\Permission\Models\Role;
 
 class UserResource extends Resource
 {
@@ -29,8 +30,7 @@ class UserResource extends Resource
     // ✅ hanya admin yang bisa akses
     public static function canAccess(): bool
     {
-        // type hint dengan casting untuk memastikan $user adalah instance User atau null
-        /** @var User|null $user */ //Dengan @var docblock, VSCode tahu bahwa $user adalah instance User yang punya method hasRole()
+        /** @var User|null $user */
         $user = Auth::user();
 
         return $user?->hasRole('admin') ?? false;
@@ -71,14 +71,68 @@ class UserResource extends Resource
 
                         Select::make('roles')
                             ->label('Role')
-                            ->relationship('roles', 'name')
-                            ->options([
-                                'admin'    => 'Admin',
-                                'karyawan' => 'Karyawan',
-                            ])
+                            ->relationship(
+                                name: 'roles',
+                                titleAttribute: 'name'
+                            )
+                            ->preload()
+                            ->searchable()
                             ->native(false)
                             ->required()
-                            ->placeholder('Pilih role'),
+                            ->live(onBlur: false)
+                            ->placeholder('Pilih Role'),
+                    ]),
+
+                // ✅ AKSES MODUL — hanya muncul kalau role = karyawan
+                Section::make('Akses Modul')
+                    ->description(
+                        'Modul yang dicentang, karyawan dapat melihat dan menambahkan data. Modul yang tidak dicentang, karyawan hanya dapat melihat.'
+                    )
+                    ->visible(function ($get, $record) {
+
+                        $roles = $get('roles');
+
+                        // create mode
+                        if (filled($roles)) {
+
+                            $roleIds = is_array($roles)
+                                ? $roles
+                                : [$roles];
+
+                            return Role::whereIn('id', $roleIds)
+                                ->where('name', 'karyawan')
+                                ->exists();
+                        }
+
+                        // edit mode → fallback dari record
+                        return $record?->hasRole('karyawan') ?? false;
+                    })
+                    ->schema([
+                        CheckboxList::make('modul_akses')
+                            ->label('')
+                            ->options([
+                                'pengadaan'  => 'Pengadaan Bahan Baku',
+                                'produksi'   => 'Produksi',
+                                'distribusi' => 'Distribusi',
+                                'retur'      => 'Retur',
+                            ])
+                            ->columns(2)
+
+                            ->afterStateHydrated(function ($set, $record) {
+
+                                if (!$record) {
+                                    return;
+                                }
+
+                                $aktif = $record->modulePermissions
+                                    ->where('dapat_akses', true)
+                                    ->pluck('modul')
+                                    ->toArray();
+
+                                $set('modul_akses', $aktif);
+                            })
+
+                            ->dehydrated(false),
                     ]),
             ]);
     }
@@ -86,10 +140,14 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->searchPlaceholder('Cari Nama...')
             ->columns([
                 TextColumn::make('name')
                     ->label('Nama')
-                    ->searchable(),
+                    ->searchable(query: function ($query, $search) {
+                        $query->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    }),
 
                 TextColumn::make('email')
                     ->label('Email')
@@ -110,18 +168,84 @@ class UserResource extends Resource
                         default    => 'gray',
                     }),
 
+                // ✅ tampilkan modul yang diizinkan
+                TextColumn::make('modul_diizinkan')
+                    ->label('Akses Modul')
+                    ->getStateUsing(function ($record) {
+                        if ($record->hasRole('admin')) return 'Semua Modul';
+
+                        $modul = $record->modulePermissions
+                            ->where('dapat_akses', true)
+                            ->pluck('modul')
+                            ->map(fn($m) => match ($m) {
+                                'pengadaan'  => 'Pengadaan',
+                                'produksi'   => 'Produksi',
+                                'distribusi' => 'Distribusi',
+                                'retur'      => 'Retur',
+                                default      => $m,
+                            })
+                            ->join(', ');
+
+                        return $modul ?: 'Hanya Lihat';
+                    }),
+
                 TextColumn::make('created_at')
                     ->label('Dibuat')
                     ->date('d M Y')
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
+            ->filters([
+
+                // FILTER ROLE
+                Tables\Filters\SelectFilter::make('role')
+                    ->label('Role')
+                    ->options([
+                        'admin' => 'Admin',
+                        'karyawan' => 'Karyawan',
+                    ])
+                    ->placeholder('Semua Role')
+                    ->query(function ($query, array $data) {
+
+                        if (blank($data['value'])) {
+                            return $query;
+                        }
+
+                        return $query->whereHas(
+                            'roles',
+                            fn($q) =>
+                            $q->where('name', $data['value'])
+                        );
+                    }),
+
+                // FILTER AKSES MODUL
+                Tables\Filters\SelectFilter::make('akses_modul')
+                    ->label('Akses Modul')
+                    ->options([
+                        'pengadaan'  => 'Pengadaan Bahan Baku',
+                        'produksi'   => 'Produksi',
+                        'distribusi' => 'Distribusi',
+                        'retur'      => 'Retur',
+                    ])
+                    ->placeholder('Semua Modul')
+                    ->query(function ($query, array $data) {
+                        if (blank($data['value'])) {
+                            return $query;
+                        }
+                        return $query->whereHas(
+                            'modulePermissions',
+                            fn($q) =>
+                            $q->where('modul', $data['value'])
+                                ->where('dapat_akses', true)
+                        );
+                    }),
+            ])
             ->actions([
                 ActionGroup::make([
                     Tables\Actions\EditAction::make()
                         ->label('Ubah'),
 
-                    // ✅ RESET PASSWORD BY ADMIN
+                    // RESET PASSWORD BY ADMIN
                     Tables\Actions\Action::make('reset_password')
                         ->label('Reset Password')
                         ->icon('heroicon-o-key')
@@ -154,12 +278,10 @@ class UserResource extends Resource
                         ->modalHeading('Reset Password')
                         ->modalSubmitActionLabel('Reset')
                         ->modalCancelActionLabel('Batal')
-                        // ✅ tidak bisa reset password diri sendiri
                         ->visible(fn($record) => $record->id !== Auth::id()),
 
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus')
-                        // ✅ tidak bisa hapus diri sendiri
                         ->visible(fn($record) => $record->id !== Auth::id()),
 
                 ])->color('black'),

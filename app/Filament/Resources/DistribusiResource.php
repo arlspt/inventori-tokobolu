@@ -38,6 +38,67 @@ class DistribusiResource extends Resource
     protected static ?string $navigationLabel = 'Distribusi';
     protected static ?string $pluralModelLabel = 'Distribusi';
 
+    // Cek akses navigasi (apakah modul muncul di sidebar)
+    public static function canAccess(): bool
+    {
+        /** @var \App\Models\User|null $user */
+
+        $user = Auth::user();
+        if (!$user) return false;
+        if ($user->hasRole('admin')) return true;
+        // karyawan selalu bisa lihat (navigasi tetap muncul)
+        return $user->hasRole('karyawan');
+    }
+
+    // Karyawan tidak bisa create kalau modul tidak diizinkan
+    public static function canCreate(): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        if ($user->hasRole('admin')) return true;
+        return $user->dapatAksesModul('distribusi');
+    }
+
+    // Karyawan tidak pernah bisa edit
+    public static function canEdit($record): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        return $user->hasRole('admin');
+    }
+
+    // Karyawan tidak pernah bisa delete
+    public static function canDelete($record): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        return $user->hasRole('admin');
+    }
+
+    protected static function bolehAksiDistribusi(): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        return $user->hasRole('admin')
+            || $user->dapatAksesModul('distribusi');
+    }
+
+    protected static function bolehCetak(): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (!$user) {
+            return false;
+        }
+
+        return $user->hasRole('admin');
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -67,7 +128,6 @@ class DistribusiResource extends Resource
                                     ->relationship('reseller', 'nama_reseller')
                                     ->searchable()
                                     ->requiredWithout('tujuan_lain')
-                                    ->visible(fn($get) => blank($get('tujuan_lain')))
                                     ->createOptionForm([
                                         TextInput::make('nama_reseller')
                                             ->label('Nama Reseller')
@@ -97,8 +157,7 @@ class DistribusiResource extends Resource
                                 TextInput::make('tujuan_lain')
                                     ->label('Customer / Tujuan Lain')
                                     ->placeholder('Isi jika bukan untuk reseller')
-                                    ->live()
-                                    ->visible(fn($get) => blank($get('reseller_id'))),
+                                    ->visible(fn($get) => !$get('reseller_id')),
                             ])
                             ->columnSpan(1),
 
@@ -265,7 +324,7 @@ class DistribusiResource extends Resource
             )
             ->recordUrl(null) // penting
             ->recordAction('view') // klik row -> modal
-            ->searchPlaceholder('Cari Tujuan')
+            ->searchPlaceholder('Cari Tujuan...')
             ->columns([
                 TextColumn::make('nomor_invoice')
                     ->label('No. Invoice')
@@ -358,6 +417,7 @@ class DistribusiResource extends Resource
             ])
             ->headerActions([
                 Action::make('rekap_bulanan')
+                    ->visible(fn() => static::bolehCetak())
                     ->label('Rekap Bulanan Distribusi')
                     ->icon('heroicon-o-document-chart-bar')
                     ->color('gray')
@@ -464,8 +524,17 @@ class DistribusiResource extends Resource
                                 )
                                 ->icon('heroicon-o-arrow-uturn-left')
                                 ->color('warning')
-                                ->visible(fn($record) => $record->status !== 'dibatalkan')
+                                ->visible(
+                                    fn($record) =>
+                                    $record->status !== 'dibatalkan'
+                                        && static::bolehAksiDistribusi()
+                                )
                                 ->action(function ($record) {
+                                    abort_unless(
+                                        static::bolehAksiDistribusi(),
+                                        403
+                                    );
+
                                     $retur = \App\Models\Retur::where('distribusi_id', $record->id)
                                         ->whereNull('deleted_at')
                                         ->first();
@@ -491,8 +560,11 @@ class DistribusiResource extends Resource
                                 ->color('success')
                                 ->visible(
                                     fn($record) =>
-                                    $record->status !== 'dibatalkan' &&
+                                    $record->status !== 'dibatalkan'
+                                        &&
                                         $record->status_pembayaran !== 'lunas'
+                                        &&
+                                        static::bolehAksiDistribusi()
                                 )
                                 ->requiresConfirmation()
                                 ->modalHeading('Tandai Lunas?')
@@ -500,6 +572,11 @@ class DistribusiResource extends Resource
                                 ->modalSubmitActionLabel('Ya, Tandai Lunas')
                                 ->modalCancelActionLabel('Tidak')
                                 ->action(function ($record) {
+                                    // CEK LAGI SEBELUM EKSEKUSI
+                                    abort_unless(
+                                        static::bolehAksiDistribusi(),
+                                        403
+                                    );
 
                                     $record->update([
                                         'status_pembayaran' => 'lunas'
@@ -512,6 +589,7 @@ class DistribusiResource extends Resource
                                 }),
 
                             Action::make('cetak_invoice')
+                                ->visible(fn() => static::bolehCetak())
                                 ->label('Cetak Invoice')
                                 ->icon('heroicon-o-printer')
                                 ->color('gray')
@@ -570,7 +648,7 @@ class DistribusiResource extends Resource
                         ]),
                     Tables\Actions\EditAction::make()
                         ->label('Ubah')
-                        ->visible(fn($record) => $record->status !== 'dibatalkan'),
+                        ->visible(fn() => static::bolehAksiDistribusi()),
 
                     Action::make('retur')
                         ->label(
@@ -582,7 +660,11 @@ class DistribusiResource extends Resource
                                 : 'Buat Retur'
                         )->icon('heroicon-o-arrow-uturn-left')
                         ->color('warning')
-                        ->visible(fn($record) => $record->status !== 'dibatalkan')
+                        ->visible(
+                            fn($record) =>
+                            $record->status !== 'dibatalkan'
+                                && static::bolehAksiDistribusi()
+                        )
                         ->url(function ($record) {
 
                             $retur = \App\Models\Retur::where('distribusi_id', $record->id)
@@ -607,8 +689,11 @@ class DistribusiResource extends Resource
                         ->color('success')
                         ->visible(
                             fn($record) =>
-                            $record->status !== 'dibatalkan' &&
+                            $record->status !== 'dibatalkan'
+                                &&
                                 $record->status_pembayaran !== 'lunas'
+                                &&
+                                static::bolehAksiDistribusi()
                         )
                         ->requiresConfirmation()
                         ->modalHeading('Tandai Lunas?')
@@ -616,6 +701,11 @@ class DistribusiResource extends Resource
                         ->modalSubmitActionLabel('Ya, Tandai Lunas')
                         ->modalCancelActionLabel('Tidak')
                         ->action(function ($record) {
+                            // CEK LAGI SEBELUM EKSEKUSI
+                            abort_unless(
+                                static::bolehAksiDistribusi(),
+                                403
+                            );
 
                             $record->update([
                                 'status_pembayaran' => 'lunas'
@@ -631,7 +721,11 @@ class DistribusiResource extends Resource
                         ->label('Batalkan')
                         ->color('danger')
                         ->icon('heroicon-o-x-circle')
-                        ->visible(fn($record) => $record->status !== 'dibatalkan')
+                        ->visible(
+                            fn($record) =>
+                            $record->status !== 'dibatalkan'
+                                && static::bolehAksiDistribusi()
+                        )
                         ->requiresConfirmation()
                         ->modalHeading('Batalkan?')
                         ->modalDescription('Tindakan ini akan membatalkan distribusi dan mengembalikan stok produk. Pastikan tidak ada retur yang terkait dengan distribusi ini sebelum membatalkannya.')

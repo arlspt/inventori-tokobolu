@@ -17,8 +17,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Illuminate\Support\Facades\Auth;
 use Filament\Tables\Actions\ViewAction;
-use Filament\Infolists\Components\RepeatableEntry;
-use Filament\Infolists\Components\TextEntry;
 use Filament\Tables\Actions\ActionGroup;
 use Carbon\Carbon;
 use Filament\Forms\Components\Actions\Action;
@@ -32,6 +30,47 @@ class ProduksiResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-cube';
     protected static ?string $navigationLabel = 'Produksi';
     protected static ?string $pluralModelLabel = 'Produksi';
+
+    // Cek akses navigasi (apakah modul muncul di sidebar)
+    public static function canAccess(): bool
+    {
+        /** @var \App\Models\User|null $user */
+
+        $user = Auth::user();
+        if (!$user) return false;
+        if ($user->hasRole('admin')) return true;
+        // karyawan selalu bisa lihat (navigasi tetap muncul)
+        return $user->hasRole('karyawan');
+    }
+
+    // Karyawan tidak bisa create kalau modul tidak diizinkan
+    public static function canCreate(): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        if ($user->hasRole('admin')) return true;
+        return $user->dapatAksesModul('produksi');
+    }
+
+    // Karyawan tidak pernah bisa edit
+    public static function canEdit($record): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        return $user->hasRole('admin');
+    }
+
+    // Karyawan tidak pernah bisa delete
+    public static function canDelete($record): bool
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        if (!$user) return false;
+        return $user->hasRole('admin');
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -348,6 +387,7 @@ class ProduksiResource extends Resource
     {
         return $table
             ->recordUrl(null) // menonaktifkan klik pada baris untuk melihat detail
+            ->searchPlaceholder('Cari Nama Pembuat...')
             ->columns([
                 TextColumn::make('tanggal')
                     ->label('Hari, Tanggal')
@@ -361,6 +401,23 @@ class ProduksiResource extends Resource
                     ->label('Dibuat Oleh')
                     ->getStateUsing(function ($record) {
                         return $record->user ? $record->user->name : '-';
+                    })
+                    ->formatStateUsing(function ($state, $record) {
+
+                        $role = $record->user?->roles->first()?->name;
+
+                        $roleLabel = match ($role) {
+                            'admin' => 'Admin',
+                            'karyawan' => 'Karyawan',
+                            default => ucfirst($role ?? '-'),
+                        };
+
+                        return $state . ' (' . $roleLabel . ')';
+                    })
+                    ->searchable(query: function ($query, $search) {
+                        $query->whereHas('user', function ($q) use ($search) {
+                            $q->where('name', 'like', "%$search%");
+                        });
                     }),
 
                 TextColumn::make('produksiDetail')

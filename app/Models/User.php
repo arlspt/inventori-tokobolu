@@ -37,4 +37,21 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasRole(['admin', 'karyawan']);
     }
+
+    // relasi ke user_module_permissions
+    public function modulePermissions()
+    {
+        return $this->hasMany(UserModulePermission::class);
+    }
+
+    // cek apakah karyawan boleh akses modul tertentu
+    public function dapatAksesModul(string $modul): bool
+    {
+        if ($this->hasRole('admin')) return true;
+
+        return $this->modulePermissions()
+            ->where('modul', $modul)
+            ->where('dapat_akses', true)
+            ->exists();
+    }
 }
