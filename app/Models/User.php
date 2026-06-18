@@ -17,6 +17,7 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'is_admin_key',
     ];
 
     protected $hidden = [
@@ -29,6 +30,7 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
+            'is_admin_key'      => 'boolean',
         ];
     }
 
@@ -53,5 +55,11 @@ class User extends Authenticatable implements FilamentUser
             ->where('modul', $modul)
             ->where('dapat_akses', true)
             ->exists();
+    }
+
+    public function isAdminKey(): bool
+    {
+        return $this->hasRole('admin')
+            && (bool) $this->is_admin_key;
     }
 }

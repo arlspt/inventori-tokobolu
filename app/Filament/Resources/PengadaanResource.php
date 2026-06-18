@@ -273,7 +273,7 @@ class PengadaanResource extends Resource
             )
             ->recordUrl(null)
             ->recordAction('view') // klik row -> modal
-            ->searchPlaceholder('Cari Supplier')
+            ->searchPlaceholder('Cari Supplier...')
             ->columns([
                 TextColumn::make('tanggal')
                     ->label('Tanggal')

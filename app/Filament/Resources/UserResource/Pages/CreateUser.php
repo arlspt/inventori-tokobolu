@@ -6,6 +6,8 @@ use App\Filament\Resources\UserResource;
 use App\Models\UserModulePermission;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Actions\Action;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class CreateUser extends CreateRecord
 {
@@ -28,8 +30,58 @@ class CreateUser extends CreateRecord
         return 'Tambah User';
     }
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+        $roles = $data['roles'] ?? [];
+
+        if (!is_array($roles)) {
+            $roles = [$roles];
+        }
+
+        // admin biasa tidak boleh membuat admin
+        if (
+            $user
+            && !$user->isAdminKey()
+            && in_array('admin', $roles)
+        ) {
+            throw ValidationException::withMessages([
+                'roles' => 'Hanya admin utama yang dapat membuat admin.',
+            ]);
+        }
+
+        /** @var \App\Models\User|null $user */
+        $user = Auth::user();
+
+        if (
+            $user
+            && $user->hasRole('admin')
+            && !$user->isAdminKey()
+        ) {
+            $data['roles'] = ['karyawan'];
+        }
+
+        return $data;
+    }
+
     protected function afterCreate(): void
     {
+        $user = $this->record;
+
+        /** @var \App\Models\User|null $loginUser */
+        $loginUser = Auth::user();
+
+        // admin biasa → paksa assign role karyawan
+        if (
+            $loginUser
+            && $loginUser->hasRole('admin')
+            && !$loginUser->isAdminKey()
+            && !$user->roles()->exists()
+        ) {
+            $user->assignRole('karyawan');
+        }
+
         $this->simpanModulAkses();
     }
 

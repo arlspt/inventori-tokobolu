@@ -28,3 +28,12 @@ Route::get('/retur/{id}/cetak', [ReturController::class, 'cetak'])
 Route::get('/retur/rekap-bulanan', [ReturController::class, 'rekapBulanan'])
     ->name('retur.rekap-bulanan')
     ->middleware(['auth']);
+
+
+Route::get('/reset-password/{token}', function (
+    string $token
+) {
+    return redirect(
+        '/admin/password-reset/reset/' . $token
+    );
+})->name('password.reset');

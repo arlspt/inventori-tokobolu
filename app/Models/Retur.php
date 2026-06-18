@@ -29,22 +29,7 @@ class Retur extends Model
     {
         return $this->hasMany(ReturDetail::class);
     }
-    // private function adjustDistribusi($retur, $mode = 'reduce')
-    // {
-    //     foreach ($retur->detail as $item) {
-    //         $distribusiDetail = \App\Models\DistribusiDetail::where('distribusi_id', $retur->distribusi_id)
-    //             ->where('produk_id', $item->produk_id)
-    //             ->first();
-    //         if ($distribusiDetail) {
-    //             if ($mode === 'reduce') {
-    //                 $distribusiDetail->jumlah -= $item->jumlah;
-    //             } else {
-    //                 $distribusiDetail->jumlah += $item->jumlah;
-    //             }
-    //             $distribusiDetail->save();
-    //         }
-    //     }
-    // }
+
     protected static function booted()
     {
         static::creating(function ($retur) {
@@ -71,25 +56,5 @@ class Retur extends Model
                     'RET-' . $year . '-' . str_pad($number, 4, '0', STR_PAD_LEFT);
             });
         });
-        // static::deleting(function ($retur) {
-        //     $retur->load('detail');
-        //     foreach ($retur->detail as $detail) {
-        //         if ((int) $detail->jumlah <= 0) continue;
-        //         // kembalikan jumlah ke distribusi_detail
-        //         $dist = \App\Models\DistribusiDetail::where('distribusi_id', $retur->distribusi_id)
-        //             ->where('produk_id', $detail->produk_id)
-        //             ->first();
-        //         if ($dist) {
-        //             $dist->increment('jumlah', $detail->jumlah);
-        //         }
-        //         // ✅ kembalikan stok hanya kalau kondisi baik
-        //         if ($detail->kondisi === 'baik') {
-        //             $produk = \App\Models\Produk::find($detail->produk_id);
-        //             if ($produk) {
-        //                 $produk->decrement('stok', $detail->jumlah);
-        //             }
-        //         }
-        //     }
-        // });
     }
 }

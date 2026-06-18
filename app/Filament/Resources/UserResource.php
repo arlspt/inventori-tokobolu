@@ -18,6 +18,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Spatie\Permission\Models\Role;
+use Illuminate\Database\Eloquent\Builder;
 
 class UserResource extends Resource
 {
@@ -34,6 +35,74 @@ class UserResource extends Resource
         $user = Auth::user();
 
         return $user?->hasRole('admin') ?? false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // admin-key boleh edit semua
+        if ($user->isAdminKey()) {
+            return true;
+        }
+
+        // admin biasa hanya boleh edit karyawan
+        if (
+            $user->hasRole('admin')
+            && $record->hasRole('karyawan')
+        ) {
+            return true;
+        }
+        return false;
+    }
+
+    public static function canManageUser($record): bool
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        if (!$user) {
+            return false;
+        }
+
+        // admin-key → boleh semua
+        if ($user->isAdminKey()) {
+            return true;
+        }
+
+        // admin biasa → hanya karyawan
+        return $record->hasRole('karyawan');
+    }
+
+    public static function canDelete($record): bool
+    {
+        if (static::adalahAdminKey($record)) {
+            return false;
+        }
+
+        return static::canManageUser($record);
+    }
+
+    protected static function adalahAdminKey($record): bool
+    {
+        return $record
+            && $record->hasRole('admin')
+            && $record->isAdminKey();
+    }
+
+    protected static function adminBiasa(): bool
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        return $user
+            && $user->hasRole('admin')
+            && !$user->isAdminKey();
     }
 
     public static function form(Form $form): Form
@@ -79,8 +148,24 @@ class UserResource extends Resource
                             ->searchable()
                             ->native(false)
                             ->required()
-                            ->live(onBlur: false)
-                            ->placeholder('Pilih Role'),
+                            ->live()
+
+                            // admin biasa → otomatis karyawan
+                            ->default(
+                                fn() =>
+                                static::adminBiasa()
+                                    ? 'karyawan'
+                                    : null
+                            )
+
+                            // sembunyikan role
+                            ->visible(
+                                fn() =>
+                                !static::adminBiasa()
+                            )
+
+                            ->dehydrated(true)
+                            ->placeholder('Pilih Role')
                     ]),
 
                 // ✅ AKSES MODUL — hanya muncul kalau role = karyawan
@@ -88,24 +173,21 @@ class UserResource extends Resource
                     ->description(
                         'Modul yang dicentang, karyawan dapat melihat dan menambahkan data. Modul yang tidak dicentang, karyawan hanya dapat melihat.'
                     )
-                    ->visible(function ($get, $record) {
+                    ->visible(function ($get) {
 
-                        $roles = $get('roles');
-
-                        // create mode
-                        if (filled($roles)) {
-
-                            $roleIds = is_array($roles)
-                                ? $roles
-                                : [$roles];
-
-                            return Role::whereIn('id', $roleIds)
-                                ->where('name', 'karyawan')
-                                ->exists();
+                        // admin biasa → selalu tampil
+                        if (static::adminBiasa()) {
+                            return true;
                         }
 
-                        // edit mode → fallback dari record
-                        return $record?->hasRole('karyawan') ?? false;
+                        $role = $get('roles');
+
+                        if (is_array($role)) {
+                            $role = $role[0] ?? null;
+                        }
+
+                        return $role === 'karyawan'
+                            || $role == 2;
                     })
                     ->schema([
                         CheckboxList::make('modul_akses')
@@ -135,6 +217,30 @@ class UserResource extends Resource
                             ->dehydrated(false),
                     ]),
             ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        if (!$user) {
+            return $query->whereRaw('1=0');
+        }
+
+        // Admin Key → lihat semua
+        if ($user->isAdminKey()) {
+            return $query;
+        }
+
+        // Admin biasa → hanya lihat karyawan
+        return $query->whereHas(
+            'roles',
+            fn($q) =>
+            $q->where('name', 'karyawan')
+        );
     }
 
     public static function table(Table $table): Table
@@ -204,13 +310,17 @@ class UserResource extends Resource
                         'admin' => 'Admin',
                         'karyawan' => 'Karyawan',
                     ])
+                    ->visible(function () {
+                        /** @var User|null $user */
+                        $user = Auth::user();
+                        return $user?->isAdminKey();
+                    })
                     ->placeholder('Semua Role')
                     ->query(function ($query, array $data) {
 
                         if (blank($data['value'])) {
                             return $query;
                         }
-
                         return $query->whereHas(
                             'roles',
                             fn($q) =>
@@ -243,7 +353,8 @@ class UserResource extends Resource
             ->actions([
                 ActionGroup::make([
                     Tables\Actions\EditAction::make()
-                        ->label('Ubah'),
+                        ->label('Ubah')
+                        ->visible(fn($record) => static::canEdit($record)),
 
                     // RESET PASSWORD BY ADMIN
                     Tables\Actions\Action::make('reset_password')
@@ -278,11 +389,25 @@ class UserResource extends Resource
                         ->modalHeading('Reset Password')
                         ->modalSubmitActionLabel('Reset')
                         ->modalCancelActionLabel('Batal')
-                        ->visible(fn($record) => $record->id !== Auth::id()),
+                        ->visible(
+                            fn($record) =>
+                            $record->id !== Auth::id()
+                                &&
+                                !static::adalahAdminKey($record)
+                                &&
+                                static::canManageUser($record)
+                        ),
 
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus')
-                        ->visible(fn($record) => $record->id !== Auth::id()),
+                        ->visible(
+                            fn($record) =>
+                            $record->id !== Auth::id()
+                                &&
+                                !static::adalahAdminKey($record)
+                                &&
+                                static::canManageUser($record)
+                        ),
 
                 ])->color('black'),
             ])

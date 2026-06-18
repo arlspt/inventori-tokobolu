@@ -452,9 +452,9 @@ tbody tr:last-child td {
         🖨️ Cetak Rekap Tujuan Lain
     </button>
 
-    <button onclick="window.close()"
+    <button onclick="window.history.back()"
         style="padding:8px 16px;background:transparent;color:#6b7280;border:1px solid #c5bfb6;border-radius:4px;font-size:12px;cursor:pointer;">
-        Tutup
+        Kembali
     </button>
 
     <span style="font-size:11px;color:#9a918a;margin-left:4px;">
