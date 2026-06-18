@@ -38,8 +38,8 @@
                             <th class="text-left px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Bahan Baku</th>
                             <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Digunakan</th>
                             <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Masuk</th>
-                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Tersedia</th>
-                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Total Harga</th>
+                            {{-- <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Tersedia</th> --}}
+                            <th class="text-right px-4 py-2.5 text-gray-500 dark:text-gray-200 font-semibold">Biaya (Rp)</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -58,9 +58,9 @@
                                         <span class="text-gray-300 dark:text-gray-200">—</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2.5 text-right text-gray-700 dark:text-gray-200 font-semibold">
+                                {{-- <td class="px-4 py-2.5 text-right text-gray-700 dark:text-gray-200 font-semibold">
                                     {{ $item['stok_tersedia_label'] }}
-                                </td>
+                                </td> --}}
                                 <td class="px-4 py-2.5 text-right font-semibold text-gray-800 dark:text-gray-200">
                                     Rp {{ number_format($item['total_harga'], 0, ',', '.') }}
                                 </td>
