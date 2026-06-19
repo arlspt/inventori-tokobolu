@@ -30,7 +30,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(\App\Filament\Auth\Login::class)
             ->passwordReset()
             ->brandName('Bolu Legenda Malang')        // ganti teks Laravel
             ->brandLogo(asset('images/logo_header_hitam.png'))     // tampilkan logo

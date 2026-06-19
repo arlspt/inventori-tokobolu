@@ -27,12 +27,39 @@ class ActivityLogObserver
         $this->buatLog($model, 'Hapus');
     }
 
+    protected function bolehDicatat($model): bool
+    {
+        return in_array(
+            class_basename($model),
+            [
+
+                // MASTER
+                'User',
+
+                // TRANSAKSI UTAMA
+                'Pengadaan',
+                'Produksi',
+                'Distribusi',
+                'Retur',
+
+                // opsional
+                'Supplier',
+                'Reseller',
+            ]
+        );
+    }
+
     protected function buatLog(
         $model,
         string $aktivitas
     ): void {
 
         if (!Auth::check()) {
+            return;
+        }
+
+        // CEGAH LOG DUPLIKAT
+        if (!$this->bolehDicatat($model)) {
             return;
         }
 
@@ -62,28 +89,18 @@ class ActivityLogObserver
     {
         return match (class_basename($model)) {
 
-            // Pengadaan
-            'Pengadaan',
-            'PengadaanDetail'
+            'Pengadaan'
             => 'pengadaan bahan baku',
 
-            // Produksi
-            'Produksi',
-            'ProduksiDetail'
+            'Produksi'
             => 'produksi',
 
-            // Distribusi
-            'Distribusi',
-            'DistribusiDetail'
+            'Distribusi'
             => 'distribusi',
 
-            // Retur
-            'Retur',
-            'ReturDetail',
-            'DetailRetur'
+            'Retur'
             => 'retur',
 
-            // Master
             'Supplier'
             => 'supplier',
 
@@ -94,9 +111,7 @@ class ActivityLogObserver
             => 'manajemen user',
 
             default =>
-            strtolower(
-                class_basename($model)
-            ),
+            strtolower(class_basename($model)),
         };
     }
 }

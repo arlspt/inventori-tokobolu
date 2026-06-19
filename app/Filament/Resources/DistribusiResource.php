@@ -128,6 +128,7 @@ class DistribusiResource extends Resource
                                     ->relationship('reseller', 'nama_reseller')
                                     ->searchable()
                                     ->requiredWithout('tujuan_lain')
+                                    ->visible(fn($get) => !filled($get('tujuan_lain')))
                                     ->createOptionForm([
                                         TextInput::make('nama_reseller')
                                             ->label('Nama Reseller')
@@ -157,7 +158,15 @@ class DistribusiResource extends Resource
                                 TextInput::make('tujuan_lain')
                                     ->label('Customer / Tujuan Lain')
                                     ->placeholder('Isi jika bukan untuk reseller')
-                                    ->visible(fn($get) => !$get('reseller_id')),
+                                    ->live()  // ✅ tambahkan live agar reseller langsung hilang saat diketik
+                                    // ✅ sembunyikan kalau reseller sudah dipilih
+                                    ->visible(fn($get) => !filled($get('reseller_id')))
+                                    ->afterStateUpdated(function ($state, $set) {
+                                        // ✅ kalau tujuan_lain diisi, clear reseller_id
+                                        if (filled($state)) {
+                                            $set('reseller_id', null);
+                                        }
+                                    }),
                             ])
                             ->columnSpan(1),
 
