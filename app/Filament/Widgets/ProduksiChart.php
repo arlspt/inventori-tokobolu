@@ -13,87 +13,228 @@ class ProduksiChart extends ChartWidget
     protected int | string | array $columnSpan = 1;
     protected static ?int $sort = 2;
 
-    public ?string $filter = 'minggu_ini';
+    public string $filterMode = 'mingguan';
+
+    public ?int $minggu = 2;
+
+    public ?int $bulan = null;
 
     #[On('filterUpdated')]
-    public function updateFilter(string $filter): void
-    {
-        $this->filter = $filter;
+    public function updateFilter(
+        $mode,
+        $minggu = null,
+        $bulan = null
+    ): void {
+
+        $this->filterMode = $mode;
+
+        $this->minggu = $minggu;
+
+        $this->bulan = $bulan;
     }
 
     protected function getData(): array
     {
-        $now = now();
+        // =========================
+        // HARIAN
+        // =========================
+        if ($this->filterMode === 'harian') {
 
-        // ── HARI INI: 1 bar total ──
-        if ($this->filter === 'hari_ini') {
+            $today = now();
 
-            $total = \App\Models\ProduksiDetail::whereHas('produksi', function ($q) use ($now) {
-                $q->whereDate('tanggal', $now->toDateString());
-            })->sum(DB::raw('jumlah_produksi - gagal'));
+            $total =
+                \App\Models\ProduksiDetail::whereHas(
+                    'produksi',
+                    fn($q) =>
+                    $q->whereDate(
+                        'tanggal',
+                        $today
+                    )
+                )
+                ->sum(
+                    DB::raw(
+                        'jumlah_produksi - gagal'
+                    )
+                );
 
-            $data = collect([[
-                'label' => $now->locale('id')->translatedFormat('l, d M Y'),
-                'total' => $total,
-            ]]);
+            return [
+
+                'datasets' => [[
+                    'label' => 'Produksi',
+                    'data' => [$total],
+                ]],
+
+                'labels' => [
+                    'Hari Ini'
+                ],
+
+            ];
         }
 
-        // ── MINGGU INI: per hari Senin–Minggu ──
-        elseif ($this->filter === 'minggu_ini') {
 
-            $start = $now->copy()->startOfWeek(Carbon::MONDAY);
+        // =========================
+        // MINGGUAN
+        // =========================
+        if ($this->filterMode === 'mingguan') {
 
-            $data = collect(range(0, 6))->map(function ($i) use ($start) {
-                $date = $start->copy()->addDays($i);
-                return [
-                    'label' => $date->locale('id')->translatedFormat('D'), // Sen, Sel, dst
-                    'total' => \App\Models\ProduksiDetail::whereHas('produksi', function ($q) use ($date) {
-                        $q->whereDate('tanggal', $date->toDateString());
-                    })->sum(DB::raw('jumlah_produksi - gagal')),
-                ];
-            });
+            $bulan =
+                $this->bulan
+                ?: now()->month;
+
+            $minggu =
+                $this->minggu
+                ?: 2;
+
+            $start =
+                Carbon::create(
+                    now()->year,
+                    $bulan,
+                    1
+                )
+                ->addDays(
+                    ($minggu - 1) * 7
+                );
+
+            $end =
+                $start
+                ->copy()
+                ->addDays(6);
+
+            $data =
+                collect();
+
+            while (
+                $start <= $end
+            ) {
+
+                $total =
+                    \App\Models\ProduksiDetail
+                    ::whereHas(
+                        'produksi',
+                        fn($q) =>
+                        $q->whereDate(
+                            'tanggal',
+                            $start
+                        )
+                    )
+                    ->sum(
+                        DB::raw(
+                            'jumlah_produksi - gagal'
+                        )
+                    );
+
+                $data->push([
+
+                    'label' =>
+                    $start
+                        ->locale('id')
+                        ->translatedFormat('D'),
+
+                    'total' =>
+                    $total,
+
+                ]);
+
+                $start->addDay();
+            }
+
+            return [
+
+                'datasets' => [[
+                    'label' => 'Produksi',
+                    'data' =>
+                    $data
+                        ->pluck('total')
+                        ->toArray(),
+                ]],
+
+                'labels' =>
+                $data
+                    ->pluck('label')
+                    ->toArray(),
+
+            ];
         }
 
-        // ── BULAN INI: per minggu dalam bulan ──
-        elseif ($this->filter === 'bulan_ini') {
 
-            $startOfMonth = $now->copy()->startOfMonth();
-            $endOfMonth   = $now->copy()->endOfMonth();
+        // =========================
+        // BULANAN
+        // =========================
 
-            // hitung jumlah minggu dalam bulan ini
-            $weeks = (int) ceil($endOfMonth->day / 7);
+        $bulan =
+            $this->bulan
+            ?: now()->month;
 
-            $data = collect(range(0, $weeks - 1))->map(function ($i) use ($startOfMonth, $endOfMonth) {
+        $start =
+            Carbon::create(
+                now()->year,
+                $bulan,
+                1
+            );
 
-                $start = $startOfMonth->copy()->addDays($i * 7);
-                $end   = $start->copy()->addDays(6);
+        $jumlahHari =
+            $start
+            ->copy()
+            ->daysInMonth;
 
-                // jangan melewati akhir bulan
-                if ($end->gt($endOfMonth)) $end = $endOfMonth->copy();
+        $data =
+            collect(range(
+                1,
+                $jumlahHari
+            ))->map(
+                function ($day)
+                use ($bulan) {
 
-                return [
-                    'label' => 'Minggu ' . ($i + 1),
-                    'total' => \App\Models\ProduksiDetail::whereHas('produksi', function ($q) use ($start, $end) {
-                        $q->whereBetween('tanggal', [
-                            $start->toDateString(),
-                            $end->toDateString(),
-                        ]);
-                    })->sum(DB::raw('jumlah_produksi - gagal')),
-                ];
-            });
-        }
+                    $date =
+                        Carbon::create(
+                            now()->year,
+                            $bulan,
+                            $day
+                        );
 
-        // ── FALLBACK ──
-        else {
-            $data = collect([['label' => '-', 'total' => 0]]);
-        }
+                    return [
+
+                        'label' =>
+                        $date
+                            ->format('d'),
+
+                        'total' =>
+
+                        \App\Models\ProduksiDetail
+                            ::whereHas(
+                                'produksi',
+                                fn($q) =>
+                                $q
+                                    ->whereDate(
+                                        'tanggal',
+                                        $date
+                                    )
+                            )
+                            ->sum(
+                                DB::raw(
+                                    'jumlah_produksi-gagal'
+                                )
+                            )
+
+                    ];
+                }
+            );
 
         return [
+
             'datasets' => [[
-                'label' => 'Produksi Berhasil',
-                'data'  => $data->pluck('total')->toArray(),
+                'label' => 'Produksi',
+                'data' =>
+                $data
+                    ->pluck('total')
+                    ->toArray(),
             ]],
-            'labels' => $data->pluck('label')->toArray(),
+
+            'labels' =>
+            $data
+                ->pluck('label')
+                ->toArray(),
+
         ];
     }
 

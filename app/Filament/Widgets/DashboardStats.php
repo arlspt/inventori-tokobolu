@@ -10,12 +10,23 @@ use Livewire\Attributes\On;
 
 class DashboardStats extends StatsOverviewWidget
 {
-    public $filter = 'minggu_ini';
+    public string $filterMode = 'mingguan';
+
+    public ?int $minggu = 2;
+
+    public ?int $bulan = null;
 
     #[On('filterUpdated')]
-    public function updateFilter($filter)
-    {
-        $this->filter = $filter;
+    public function updateFilter(
+        $mode,
+        $minggu = null,
+        $bulan = null
+    ) {
+        $this->filterMode = $mode;
+
+        $this->minggu = $minggu;
+
+        $this->bulan = $bulan;
     }
 
     protected function getStats(): array
@@ -133,38 +144,70 @@ class DashboardStats extends StatsOverviewWidget
     // ── range periode yang dipilih ──
     private function getDateRange(): array
     {
-        return match ($this->filter) {
-            'hari_ini'  => [
+        // HARIAN
+        if ($this->filterMode === 'harian') {
+
+            return [
                 now()->toDateString(),
                 now()->toDateString(),
-            ],
-            'bulan_ini' => [
-                now()->startOfMonth()->toDateString(),
-                now()->endOfMonth()->toDateString(),
-            ],
-            default => [ // minggu_ini
-                now()->startOfWeek(Carbon::MONDAY)->toDateString(),
-                now()->endOfWeek(Carbon::SUNDAY)->toDateString(),
-            ],
-        };
+            ];
+        }
+
+        // MINGGUAN
+        if ($this->filterMode === 'mingguan') {
+
+            $start =
+                now()
+                ->startOfMonth()
+                ->addDays(
+                    ($this->minggu - 1) * 7
+                );
+
+            $end =
+                $start
+                ->copy()
+                ->addDays(6);
+
+            return [
+                $start->toDateString(),
+                $end->toDateString(),
+            ];
+        }
+
+        // BULANAN
+        $date =
+            now()
+            ->month($this->bulan);
+
+        return [
+
+            $date
+                ->startOfMonth()
+                ->toDateString(),
+
+            $date
+                ->endOfMonth()
+                ->toDateString(),
+
+        ];
     }
 
-    // ── range pembanding (periode sebelumnya) ──
-    private function getLastWeekRange(): array
+    private function getLastWeekRange()
     {
-        return match ($this->filter) {
-            'hari_ini'  => [
-                now()->subDay()->toDateString(),
-                now()->subDay()->toDateString(),
-            ],
-            'bulan_ini' => [
-                now()->subMonth()->startOfMonth()->toDateString(),
-                now()->subMonth()->endOfMonth()->toDateString(),
-            ],
-            default => [ // minggu_ini
-                now()->subWeek()->startOfWeek(Carbon::MONDAY)->toDateString(),
-                now()->subWeek()->endOfWeek(Carbon::SUNDAY)->toDateString(),
-            ],
-        };
+        [
+            $start,
+            $end
+        ] =
+            $this->getDateRange();
+
+        return [
+            Carbon::parse($start)
+                ->subWeek()
+                ->toDateString(),
+
+            Carbon::parse($end)
+                ->subWeek()
+                ->toDateString(),
+        ];
     }
 }
