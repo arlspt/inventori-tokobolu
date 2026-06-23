@@ -14,7 +14,7 @@ class InvoiceController extends Controller
      */
     public function cetak($id)
     {
-        $distribusi = Distribusi::with(['detail.produk', 'reseller'])
+        $distribusi = Distribusi::with(['detail.produk', 'reseller', 'retur' => fn($q) => $q->withTrashed(), 'retur.detail',])
             ->where('status', '!=', 'dibatalkan')
             ->findOrFail($id);
 
@@ -80,7 +80,11 @@ class InvoiceController extends Controller
         $bulan      = Carbon::createFromFormat('Y-m', $request->bulan);
         $bulanLabel = $bulan->locale('id')->translatedFormat('F Y');
 
-        $distribusiList = Distribusi::with(['detail.produk'])
+        $distribusiList = Distribusi::with([
+            'detail.produk',
+            'retur' => fn($q) => $q->withTrashed(),
+            'retur.detail',
+        ])
             ->whereNotNull('tujuan_lain')
             ->where('status', '!=', 'dibatalkan')
             ->whereYear('tanggal', $bulan->year)
@@ -104,15 +108,14 @@ class InvoiceController extends Controller
             'bulan' => 'required|date_format:Y-m',
         ]);
 
-        $bulan = Carbon::createFromFormat('Y-m', $request->bulan);
-
-        $bulanLabel = $bulan
-            ->locale('id')
-            ->translatedFormat('F Y');
+        $bulan      = Carbon::createFromFormat('Y-m', $request->bulan);
+        $bulanLabel = $bulan->locale('id')->translatedFormat('F Y');
 
         $rekap = Distribusi::with([
             'reseller',
             'detail',
+            'retur' => fn($q) => $q->withTrashed(), // ✅ tambahkan
+            'retur.detail',                           // ✅ tambahkan
         ])
             ->whereNotNull('reseller_id')
             ->where('status', '!=', 'dibatalkan')
@@ -121,35 +124,42 @@ class InvoiceController extends Controller
             ->get()
             ->groupBy('reseller_id')
             ->map(function ($items) {
-
-                $reseller = $items->first()->reseller;
-
+                $reseller     = $items->first()->reseller;
                 $totalInvoice = $items->count();
 
-                $totalQty = $items->sum(function ($distribusi) {
-                    return $distribusi->detail->sum('jumlah');
+                $totalQty = $items->sum(fn($d) => $d->detail->sum('jumlah'));
+
+                // ✅ hitung total qty retur per reseller
+                $totalQtyRetur = $items->sum(function ($d) {
+                    return $d->retur->whereNull('deleted_at')
+                        ->flatMap(fn($r) => $r->detail)
+                        ->sum('jumlah');
                 });
 
-                $totalHarga = $items->sum(function ($distribusi) {
-                    return $distribusi->detail->sum('subtotal');
+                // ✅ hitung total harga setelah dikurangi retur
+                $totalHarga = $items->sum(function ($d) {
+                    $returNominal = $d->retur->whereNull('deleted_at')
+                        ->flatMap(fn($r) => $r->detail)
+                        ->groupBy('produk_id')
+                        ->map(fn($rd) => $rd->sum('jumlah'))
+                        ->reduce(function ($carry, $qty, $produkId) use ($d) {
+                            $harga = $d->detail->firstWhere('produk_id', $produkId)?->harga ?? 0;
+                            return $carry + ($qty * $harga);
+                        }, 0);
+                    return max(0, $d->detail->sum('subtotal') - $returNominal);
                 });
 
                 return [
-                    'nama_reseller' => $reseller->nama_reseller,
-                    'total_invoice' => $totalInvoice,
-                    'total_qty'     => $totalQty,
-                    'total_harga'   => $totalHarga,
+                    'nama_reseller'  => $reseller->nama_reseller,
+                    'total_invoice'  => $totalInvoice,
+                    'total_qty'      => $totalQty,
+                    'total_qty_retur' => $totalQtyRetur, // ✅ tambahkan
+                    'total_harga'    => $totalHarga,
                 ];
             })
             ->sortByDesc('total_harga')
             ->values();
 
-        return view(
-            'invoice.invoice-rekap-semua-reseller',
-            compact(
-                'rekap',
-                'bulanLabel'
-            )
-        );
+        return view('invoice.invoice-rekap-semua-reseller', compact('rekap', 'bulanLabel'));
     }
 }

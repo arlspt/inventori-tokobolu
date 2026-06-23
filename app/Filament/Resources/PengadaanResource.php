@@ -79,14 +79,12 @@ class PengadaanResource extends Resource
                 Section::make('Form Data Pengadaan')
                     ->columns(2)
                     ->schema([
-
                         DatePicker::make('tanggal')
                             ->label('Tanggal')
                             ->default(now())
                             ->required(),
                         Forms\Components\Hidden::make('user_id')
                             ->default(fn() => Auth::id()),
-
                         Select::make('supplier_id')
                             ->label('Supplier')
                             ->relationship('supplier', 'nama_supplier')
@@ -94,7 +92,6 @@ class PengadaanResource extends Resource
                             ->preload()
                             ->placeholder('Pilih Supplier')
                             ->required()
-
                             // FORM TAMBAH SUPPLIER
                             ->createOptionForm([
                                 TextInput::make('nama_supplier')
@@ -114,7 +111,6 @@ class PengadaanResource extends Resource
                                     ->searchable()
                                     ->nullable(),
                             ])
-
                             // CUSTOM BUTTON
                             ->createOptionAction(function ($action) {
                                 return $action
@@ -123,7 +119,6 @@ class PengadaanResource extends Resource
                                     ->modalSubmitActionLabel('Simpan')
                                     ->modalCancelActionLabel('Batal');
                             }),
-
                     ]),
                 Section::make('Detail Bahan')
                     ->schema([
@@ -135,19 +130,16 @@ class PengadaanResource extends Resource
                                     ->label('Hapus')
                                     ->icon('heroicon-o-trash')
                                     ->color('danger')
-
                                     ->before(function ($record) {
-
                                         if (!$record) return;
-
                                         $bahan = \App\Models\BahanBaku::find($record->bahan_baku_id);
-
                                         if ($bahan) {
                                             $bahan->decrement('stok', $record->jumlah);
                                         }
                                     })
                             )
                             ->schema([
+                                // BARIS 1
                                 Select::make('bahan_baku_id')
                                     ->label('Bahan Baku')
                                     ->placeholder('Pilih Bahan Baku')
@@ -155,19 +147,20 @@ class PengadaanResource extends Resource
                                     ->searchable()
                                     ->preload()
                                     ->live()
+                                    ->columnSpan(2)
                                     ->createOptionForm([
                                         TextInput::make('nama_bahan')
-                                            ->label('Nama bahan')
+                                            ->label('Nama Bahan')
                                             ->required(),
+
                                         Select::make('satuan')
                                             ->label('Satuan')
                                             ->placeholder('Pilih Satuan')
                                             ->options([
                                                 'gram' => 'Gram (Padat)',
-                                                'ml' => 'Mililiter (Cair)',
+                                                'ml'   => 'Mililiter (Cair)',
                                             ])
                                             ->required(),
-
                                         TextInput::make('stok')
                                             ->numeric()
                                             ->default(0)
@@ -175,91 +168,216 @@ class PengadaanResource extends Resource
                                             ->dehydrated()
                                             ->hidden(),
                                     ])
-                                    ->createOptionAction(function ($action) { //Mengubah button simpan
+                                    ->createOptionAction(function ($action) {
                                         return $action
                                             ->label('Tambah Bahan')
                                             ->modalHeading('Tambah Bahan Baku')
                                             ->modalSubmitActionLabel('Simpan')
                                             ->modalCancelActionLabel('Batal');
                                     })
+                                    ->afterStateUpdated(function ($state, $set) {
+                                        $bahan = \App\Models\BahanBaku::find($state);
+                                        if (!$bahan) return;
+                                        $set('satuan_input', match ($bahan->satuan) {
+                                            'gram'  => 'kg',
+                                            'ml'    => 'liter',
+                                            default => 'gram',
+                                        });
+                                    })
+                                    ->required(),
+                                TextInput::make('jumlah')
+                                    ->label('Jumlah')
+                                    ->numeric()
+                                    ->step(0.1)
+                                    ->postfix(function ($get) {
+                                        return match ($get('satuan_input')) {
+                                            'kg'    => 'Kg',
+                                            'liter' => 'L',
+                                            'ml'    => 'ml',
+                                            'gram'  => 'gr',
+                                            default => '',
+                                        };
+                                    })
+                                    ->required()
+                                    ->live(debounce: 700)
+                                    ->columnSpan(1)
+                                    ->afterStateHydrated(function (
+                                        $state,
+                                        $set,
+                                        $get
+                                    ) {
+
+                                        if ($state === null) {
+                                            return;
+                                        }
+
+                                        $satuan =
+                                            $get('satuan_input')
+                                            ?? 'kg';
+
+                                        if (
+                                            in_array(
+                                                $satuan,
+                                                ['kg', 'liter']
+                                            )
+                                        ) {
+
+                                            $set(
+                                                'jumlah',
+                                                $state / 1000
+                                            );
+
+                                            return;
+                                        }
+
+                                        $set(
+                                            'jumlah',
+                                            $state
+                                        );
+                                    })
+                                    ->dehydrateStateUsing(function ($state, $get) {
+                                        return match ($get('satuan_input')) {
+                                            'kg', 'liter' => round($state * 1000),
+                                            default       => round($state),
+                                        };
+                                    })
+                                    ->afterStateUpdated(fn($get, $set) => self::hitungSubtotal($get, $set)),
+
+                                Select::make('satuan_input')
+                                    ->label('Satuan')
+                                    ->options(function ($get) {
+                                        $bahan = \App\Models\BahanBaku::find($get('bahan_baku_id'));
+                                        if (!$bahan) return [];
+                                        return match ($bahan->satuan) {
+                                            'gram'  => ['kg' => 'Kilogram', 'gram' => 'Gram'],
+                                            'ml'    => ['liter' => 'Liter', 'ml' => 'Mililiter'],
+                                            default => ['kg' => 'Kilogram'],
+                                        };
+                                    })
+                                    ->live()
+                                    ->columnSpan(1)
+                                    ->native(false)
+                                    ->afterStateUpdated(function ($state, $old, $get, $set) {
+                                        $jumlah = (float) ($get('jumlah') ?? 0);
+                                        $harga  = (float) ($get('harga') ?? 0);
+
+                                        // Besar → kecil
+                                        if (
+                                            in_array($old, ['kg', 'liter']) &&
+                                            in_array($state, ['gram', 'ml'])
+                                        ) {
+                                            $set('jumlah', $jumlah * 1000);
+                                            $set('harga', $harga / 1000);
+                                        }
+
+                                        // Kecil → besar
+                                        elseif (
+                                            in_array($old, ['gram', 'ml']) &&
+                                            in_array($state, ['kg', 'liter'])
+                                        ) {
+                                            $set('jumlah', $jumlah / 1000);
+                                            $set('harga', $harga * 1000);
+                                        }
+
+                                        self::hitungSubtotal($get, $set);
+                                    })
+                                    ->afterStateHydrated(function ($state, $set, $get) {
+                                        if ($state) {
+                                            return;
+                                        }
+                                        $bahan =
+                                            \App\Models\BahanBaku::find(
+                                                $get('bahan_baku_id')
+                                            );
+                                        if (!$bahan) {
+                                            return;
+                                        }
+                                        $set(
+                                            'satuan_input',
+                                            match ($bahan->satuan) {
+                                                'gram' => 'kg',
+                                                'ml' => 'liter',
+                                                default => 'kg',
+                                            }
+                                        );
+                                    })
+                                    ->placeholder('Kilogram / Liter')
                                     ->required(),
 
-                                TextInput::make('jumlah')
-                                    ->label(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
-                                        'ml' => 'Jumlah / ml',
-                                        default => 'Jumlah / gram',
-                                    })
-                                    ->suffix(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
-                                        'ml' => 'L',
-                                        default => 'Kg',
-                                    })
-                                    ->numeric()
-                                    ->step(0.1) // biar bisa 0.8
-                                    ->required()
-                                    ->live() // WAJIB
-                                    // 🔥 SAAT LOAD (Edit/View)
-                                    ->afterStateHydrated(function ($state, $set) {
-                                        if ($state !== null) {
-                                            $set('jumlah', $state / 1000);
-                                        }
-                                    })
-                                    // 🔥 SAAT SIMPAN
-                                    ->dehydrateStateUsing(fn($state) => (int) round($state * 1000))
-
-                                    ->afterStateUpdated(function ($get, $set) {
-                                        $harga     = (float) str_replace(['.', ','], ['', '.'], $get('harga') ?? 0);
-                                        $jumlahKg  = (float) ($get('jumlah') ?? 0);
-                                        $jumlahGram = $jumlahKg * 1000;
-                                        $set('subtotal', $harga * $jumlahGram);
-                                    }),
-
-
+                                // BARIS 2
                                 TextInput::make('harga')
-                                    ->label(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
-                                        'ml' => 'Harga / ml',
-                                        default => 'Harga / gram',
-                                    })
-                                    ->numeric()
-                                    ->prefix('Rp.')
+                                    ->label('Harga')
+                                    ->prefix('Rp')
+                                    ->numeric(false)
                                     ->required()
-                                    ->live()
-                                    ->afterStateUpdated(function ($get, $set) {
-                                        $harga      = (float) str_replace(['.', ','], ['', '.'], $get('harga') ?? 0);
-                                        $jumlahKg   = (float) ($get('jumlah') ?? 0);
-                                        $jumlahGram = $jumlahKg * 1000;
-                                        $set('subtotal', $harga * $jumlahGram);
+                                    ->live(debounce: 700)
+                                    ->columnSpan(2)
+                                    ->afterStateHydrated(function ($state, $set, $get) {
+                                        if ($state === null) return;
+                                        // ✅ konversi harga per gram/ml ke per kg/liter untuk tampilan
+                                        $satuan = $get('satuan_input') ?? 'kg';
+                                        $set('harga', match ($satuan) {
+                                            'kg', 'liter' => (float) $state * 1000,
+                                            default        => (float) $state,
+                                        });
                                     })
-                                    ->formatStateUsing(
-                                        fn($state) =>
-                                        number_format($state, 0, ',', '.')
-                                    ),
+                                    ->dehydrateStateUsing(function ($state, $get) {
+                                        // ✅ konversi harga per kg/liter ke per gram/ml untuk DB
+                                        $satuan = $get('satuan_input');
+                                        return match ($satuan) {
+                                            'kg', 'liter' => round((float) $state / 1000, 4),
+                                            default        => round((float) $state),
+                                        };
+                                    })
+                                    ->placeholder(function ($get) {
+                                        return match ($get('satuan_input')) {
+                                            'kg'    => 'Masukan harga per 1 Kilogram',
+                                            'liter' => 'Masukan harga per 1 Liter',
+                                            'ml'    => 'Masukan harga per Mililiter',
+                                            'gram'  => 'Masukan harga per Gram',
+                                            default => '',
+                                        };
+                                    })
+                                    ->afterStateUpdated(fn($get, $set) => self::hitungSubtotal($get, $set)),
 
                                 TextInput::make('subtotal')
                                     ->label('Subtotal')
                                     ->disabled()
-                                    ->dehydrated() // tetap disimpan ke DB
-                                    ->prefix('Rp.')
-                                    ->formatStateUsing(
-                                        fn($state) =>
-                                        number_format($state, 0, ',', '.')
-                                    )
-                                    ->afterStateUpdated(function ($get, $set) {
-                                        // ✅ bersihkan format angka sebelum kalkulasi
-                                        $harga      = (float) str_replace(['.', ','], ['', '.'], $get('harga') ?? 0);
-                                        $jumlahKg   = (float) ($get('jumlah') ?? 0);
-                                        $jumlahGram = $jumlahKg * 1000;
-                                        $set('subtotal', $harga * $jumlahGram);
-                                    }),
-
+                                    ->dehydrated()
+                                    ->prefix('Rp')
+                                    ->columnSpan(2) // ✅ setengah lebar
+                                    ->formatStateUsing(fn($state) => number_format($state, 0, ',', '.')),
                             ])
-                            ->addActionLabel('Tambah Pengadaan Detail')
+                            ->addActionLabel('Tambah Bahan')
                             ->addAction(
                                 fn($action) => $action
-                                    ->label('Pengadaan Detail')
-                                    ->icon('heroicon-m-plus') // menambahkan icon di button
+                                    ->label('Tambah Bahan')
+                                    ->icon('heroicon-m-plus')
                             )
                     ]),
             ]);
+    }
+
+    private static function hitungSubtotal($get, $set): void
+    {
+        $jumlah  = (float) ($get('jumlah') ?? 0); // dalam tampilan (kg/liter/gram/ml)
+        $harga   = (float) ($get('harga') ?? 0);  // harga per satuan tampilan
+        $satuan  = $get('satuan_input');
+
+        // ✅ konversi jumlah tampilan ke satuan dasar (gram/ml) untuk simpan ke DB
+        $jumlahDasar = match ($satuan) {
+            'kg', 'liter' => $jumlah * 1000,
+            default        => $jumlah,
+        };
+
+        // ✅ konversi harga per kg/liter ke harga per gram/ml untuk DB
+        $hargaDasar = match ($satuan) {
+            'kg', 'liter' => $harga / 1000,
+            default        => $harga,
+        };
+
+        // subtotal = jumlah_dasar * harga_dasar
+        $set('subtotal', round($jumlahDasar * $hargaDasar));
     }
 
     public static function table(Table $table): Table
@@ -283,16 +401,13 @@ class PengadaanResource extends Resource
                             ->locale('id')
                             ->translatedFormat('l, d F Y')
                     ),
-
                 TextColumn::make('supplier.nama_supplier')
                     ->label('Supplier')
                     ->searchable(),
-
                 TextColumn::make('jumlah_item')
                     ->label('Jumlah Bahan')
                     ->alignCenter()
                     ->getStateUsing(fn($record) => $record->pengadaanDetail->count()),
-
                 TextColumn::make('total_harga')
                     ->label('Total')
                     ->alignEnd()
@@ -300,7 +415,6 @@ class PengadaanResource extends Resource
                         fn($record) =>
                         'Rp. ' . number_format($record->pengadaanDetail->sum('subtotal'), 0, ',', '.')
                     ),
-
                 TextColumn::make('user.name')
                     ->label('Dibuat Oleh')
                     ->formatStateUsing(function ($state, $record) {
@@ -320,7 +434,6 @@ class PengadaanResource extends Resource
                     ->label('Supplier')
                     ->relationship('supplier', 'nama_supplier')
                     ->placeholder('Semua Supplier'),
-
                 Tables\Filters\SelectFilter::make('user_id')
                     ->label('Dibuat Oleh')
                     ->options(
@@ -330,7 +443,6 @@ class PengadaanResource extends Resource
                         })
                     )
                     ->placeholder('Semua User'),
-
                 Tables\Filters\Filter::make('bulan')
                     ->form([
                         Select::make('bulan')
@@ -379,22 +491,18 @@ class PengadaanResource extends Resource
                                                 ->locale('id')
                                                 ->translatedFormat('l, d F Y')
                                         ),
-
                                     TextEntry::make('supplier.nama_supplier')
                                         ->label('Supplier'),
-
                                     TextEntry::make('user.name')
                                         ->label('Dibuat Oleh'),
                                 ])
                                 ->columns(3),
-
                             // SECTION DETAIL BAHAN
                             InfoSection::make('Detail Bahan')
                                 ->schema([
                                     \Filament\Infolists\Components\View::make('infolists.components.pengadaan-detail-table')
                                         ->viewData(fn($record) => ['detail' => $record->pengadaanDetail->load('bahanBaku')])
                                 ]),
-
                         ]),
                     Tables\Actions\EditAction::make()->label('Ubah'),
                     Tables\Actions\DeleteAction::make()

@@ -156,17 +156,10 @@ th {
     color: #faf9f7;
 }
 
-th:nth-child(2),
-td:nth-child(2) {
-    text-align: center;
-}
-
-th:nth-child(3),
-td:nth-child(3),
-th:nth-child(4),
-td:nth-child(4) {
-    text-align: right;
-}
+th:nth-child(2), td:nth-child(2) { text-align: center; }
+th:nth-child(3), td:nth-child(3) { text-align: center; }
+th:nth-child(4), td:nth-child(4) { text-align: center; }
+th:nth-child(5), td:nth-child(5) { text-align: right; }
 
 td {
     padding: 6px 8px;
@@ -383,6 +376,7 @@ tbody tr:nth-child(even) td {
                 <th>Nama Reseller</th>
                 <th>Total Invoice</th>
                 <th>Total Qty</th>
+                <th>Retur</th>
                 <th>Total Penjualan</th>
             </tr>
         </thead>
@@ -390,28 +384,20 @@ tbody tr:nth-child(even) td {
         <tbody>
 
         @foreach($rekap as $item)
-
-            <tr>
-
-                <td>
-                    {{ $item['nama_reseller'] }}
-                </td>
-
-                <td>
-                    {{ number_format($item['total_invoice']) }}
-                </td>
-
-                <td>
-                    {{ number_format($item['total_qty']) }}
-                </td>
-
-                <td>
-                    Rp {{ number_format($item['total_harga'],0,',','.') }}
-                </td>
-
-            </tr>
-
-        @endforeach
+<tr>
+    <td>{{ $item['nama_reseller'] }}</td>
+    <td>{{ number_format($item['total_invoice']) }}</td>
+    <td>{{ number_format($item['total_qty']) }}</td>
+    <td> {{-- ✅ tambahkan --}}
+        @if ($item['total_qty_retur'] > 0)
+            <span>{{ number_format($item['total_qty_retur']) }} pcs</span>
+        @else
+            <span style="color:#c5bfb6;">—</span>
+        @endif
+    </td>
+    <td>Rp {{ number_format($item['total_harga'], 0, ',', '.') }}</td>
+</tr>
+@endforeach
 
         </tbody>
 
@@ -442,16 +428,24 @@ tbody tr:nth-child(even) td {
                 </span>
             </div>
 
-            <div class="payment-row">
-                <span class="payment-row-label">
-                    Total Produk Terjual
-                </span>
+            @php
+    $grandQtyRetur = $rekap->sum('total_qty_retur');
+@endphp
 
-                <span class="payment-row-value">
-                    {{ number_format($grandQty) }}
-                </span>
-            </div>
+<div class="payment-row">
+    <span class="payment-row-label">Total Produk Terjual</span>
+    <span class="payment-row-value">{{ number_format($grandQty) }}</span>
+</div>
 
+{{-- ✅ tambahkan --}}
+@if ($grandQtyRetur > 0)
+<div class="payment-row">
+    <span class="payment-row-label">Total Varian Retur</span>
+    <span class="payment-row-value">
+        {{ number_format($grandQtyRetur) }} pcs
+    </span>
+</div>
+@endif
         </div>
 
     </div>

@@ -344,17 +344,10 @@ tbody tr:last-child td {
     color: #faf9f7;
 }
 /* kolom per posisi summary table */
-.summary-table th:nth-child(1) { text-align: left; }
-.summary-table th:nth-child(2) { text-align: left; }
-.summary-table th:nth-child(3) { text-align: center; }
-.summary-table th:nth-child(4) { text-align: right; }
-.summary-table th:nth-child(5) { text-align: center; }
-
-.summary-table td:nth-child(1) { text-align: left; }
-.summary-table td:nth-child(2) { text-align: left; }
-.summary-table td:nth-child(3) { text-align: center; }
-.summary-table td:nth-child(4) { text-align: right; }
-.summary-table td:nth-child(5) { text-align: center; }
+th:nth-child(2), td:nth-child(2) { text-align: center; }
+th:nth-child(3), td:nth-child(3) { text-align: right; }
+th:nth-child(4), td:nth-child(4) { text-align: right; }
+th:nth-child(5), td:nth-child(5) { text-align: center; }
 .summary-table td {
     padding: 6px 8px;
     color: #3d3a37;
@@ -528,51 +521,75 @@ tbody tr:last-child td {
                 {{ $distribusi->nomor_invoice }}
             </span>
         </div>
-
     </div>
+
+@php
+    $returPerProduk = $distribusi->retur
+        ->whereNull('deleted_at')
+        ->flatMap(fn($r) => $r->detail)
+        ->groupBy('produk_id')
+        ->map(fn($items) => $items->sum('jumlah'));
+    $totalDistribusiInv = $distribusi->detail->sum('subtotal');
+    $totalReturInv = 0;
+@endphp
 
     {{-- TABEL PRODUK --}}
     <table>
-        <thead>
-            <tr>
-                <th>Nama Produk</th>
-                <th>Qty</th>
-                <th>Harga</th>
-                <th>Jumlah</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            @foreach ($distribusi->detail as $item)
-            <tr>
-                <td>{{ $item->produk->nama_produk ?? '-' }}</td>
-
-                <td>{{ $item->jumlah }}</td>
-
-                <td>
-                    Rp {{ number_format($item->harga, 0, ',', '.') }}
-                </td>
-
-                <td>
+    <thead>
+        <tr>
+            <th>Nama Produk</th>
+            <th>Qty</th>
+            <th>Harga</th>
+            <th style="text-align:center;">Retur</th>
+            <th>Jumlah</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach ($distribusi->detail as $item)
+        @php
+            $jumlahRetur    = $returPerProduk->get($item->produk_id, 0);
+            $subtotalRetur  = $jumlahRetur * $item->harga;
+            $totalReturInv += $subtotalRetur;
+            $subtotalBersih = $item->subtotal - $subtotalRetur;
+        @endphp
+        <tr>
+            <td>{{ $item->produk->nama_produk ?? '-' }}</td>
+            <td>{{ $item->jumlah }}</td>
+            <td>Rp {{ number_format($item->harga, 0, ',', '.') }}</td>
+            <td style="text-align:center;">
+                {{ $jumlahRetur > 0 ? $jumlahRetur : '-' }}
+            </td>
+            <td>
+                @if ($jumlahRetur > 0)
+                    <span style="text-decoration:line-through; color:#b5ada6; font-size:8px;">
+                        Rp {{ number_format($item->subtotal, 0, ',', '.') }}
+                    </span><br>
+                    Rp {{ number_format($subtotalBersih, 0, ',', '.') }}
+                @else
                     Rp {{ number_format($item->subtotal, 0, ',', '.') }}
-                </td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
+                @endif
+            </td>
+        </tr>
+        @endforeach
+    </tbody>
+</table>
 
     {{-- TOTAL --}}
-    <div class="total-area">
+    @php $totalAkhirInv = max(0, $totalDistribusiInv - $totalReturInv); @endphp
 
-        <div class="total-label">
-            Total :
-        </div>
+@if ($totalReturInv > 0)
+<div style="display:flex; justify-content:space-between; font-size:9px; color:#dc2626; margin-bottom:2mm;">
+    <span>Potongan Retur :</span>
+    <span>- Rp {{ number_format($totalReturInv, 0, ',', '.') }}</span>
+</div>
+@endif
 
-        <div class="total-value">
-            Rp {{ number_format($distribusi->detail->sum('subtotal'), 0, ',', '.') }}
-        </div>
-
+<div class="total-area">
+    <div class="total-label">Total :</div>
+    <div class="total-value">
+        Rp {{ number_format($totalAkhirInv, 0, ',', '.') }}
     </div>
+</div>
 
     {{-- TANDA TANGAN --}}
     <div class="signatures">
@@ -666,17 +683,27 @@ tbody tr:last-child td {
                 </td>
 
                 <td>
-                    Rp {{ number_format($distribusi->detail->sum('subtotal'), 0, ',', '.') }}
-                </td>
+    @php
+        $rp = $distribusi->retur->whereNull('deleted_at')
+            ->flatMap(fn($r) => $r->detail)
+            ->groupBy('produk_id')
+            ->map(fn($items) => $items->sum('jumlah'))
+            ->reduce(function ($carry, $qty, $produkId) use ($distribusi) {
+                $harga = $distribusi->detail->firstWhere('produk_id', $produkId)?->harga ?? 0;
+                return $carry + ($qty * $harga);
+            }, 0);
+    @endphp
+    Rp {{ number_format(max(0, $distribusi->detail->sum('subtotal') - $rp), 0, ',', '.') }}
+</td>
 
                 <td>
                     @if ($distribusi->status_pembayaran === 'lunas')
                         <span class="badge badge-lunas">
-                            ✓ Lunas
+                            Lunas
                         </span>
                     @else
                         <span class="badge badge-belum">
-                            ⏳ Belum Bayar
+                            Belum Bayar
                         </span>
                     @endif
                 </td>
@@ -698,49 +725,72 @@ tbody tr:last-child td {
         $grandTotal = $totalLunas + $totalBelum;
     @endphp
 
-    <div class="grand-total-area">
+    @php
+    $totalLunas = $distribusiList->where('status_pembayaran', 'lunas')->sum(function ($d) {
+        $returNominal = $d->retur->whereNull('deleted_at')
+            ->flatMap(fn($r) => $r->detail)
+            ->groupBy('produk_id')
+            ->map(fn($items) => $items->sum('jumlah'))
+            ->reduce(function ($carry, $qty, $produkId) use ($d) {
+                $harga = $d->detail->firstWhere('produk_id', $produkId)?->harga ?? 0;
+                return $carry + ($qty * $harga);
+            }, 0);
+        return max(0, $d->detail->sum('subtotal') - $returNominal);
+    });
 
-        <div class="payment-summary">
+    $totalBelum = $distribusiList->where('status_pembayaran', '!=', 'lunas')->sum(function ($d) {
+        $returNominal = $d->retur->whereNull('deleted_at')
+            ->flatMap(fn($r) => $r->detail)
+            ->groupBy('produk_id')
+            ->map(fn($items) => $items->sum('jumlah'))
+            ->reduce(function ($carry, $qty, $produkId) use ($d) {
+                $harga = $d->detail->firstWhere('produk_id', $produkId)?->harga ?? 0;
+                return $carry + ($qty * $harga);
+            }, 0);
+        return max(0, $d->detail->sum('subtotal') - $returNominal);
+    });
 
-            <div class="payment-summary-box">
+    $grandTotal = $totalLunas + $totalBelum;
 
-                <div class="payment-row">
-                    <span class="payment-row-label">
-                        Total Lunas
-                    </span>
+    $totalQtyRetur = $distribusiList->sum(function ($d) {
+        return $d->retur->whereNull('deleted_at')
+            ->flatMap(fn($r) => $r->detail)
+            ->sum('jumlah');
+    });
+@endphp
 
-                    <span class="payment-row-value lunas">
-                        Rp {{ number_format($totalLunas, 0, ',', '.') }}
-                    </span>
-                </div>
-
-                <div class="payment-row">
-                    <span class="payment-row-label">
-                        Total Belum Bayar
-                    </span>
-
-                    <span class="payment-row-value belum">
-                        Rp {{ number_format($totalBelum, 0, ',', '.') }}
-                    </span>
-                </div>
-
+<div class="grand-total-area">
+    <div class="payment-summary">
+        <div class="payment-summary-box">
+            <div class="payment-row">
+                <span class="payment-row-label">Total Lunas</span>
+                <span class="payment-row-value lunas">
+                    Rp {{ number_format($totalLunas, 0, ',', '.') }}
+                </span>
             </div>
-
+            <div class="payment-row">
+                <span class="payment-row-label">Total Belum Bayar</span>
+                <span class="payment-row-value belum">
+                    Rp {{ number_format($totalBelum, 0, ',', '.') }}
+                </span>
+            </div>
+            @if ($totalQtyRetur > 0)
+            <div class="payment-row">
+                <span class="payment-row-label">Total Varian Retur</span>
+                <span class="payment-row-value" style="color:#dc2626;">
+                    {{ number_format($totalQtyRetur) }} pcs
+                </span>
+            </div>
+            @endif
         </div>
-
-        <div class="grand-total-block">
-
-            <div class="grand-total-label">
-                Grand Total
-            </div>
-
-            <div class="grand-total-value">
-                Rp {{ number_format($grandTotal, 0, ',', '.') }}
-            </div>
-
-        </div>
-
     </div>
+    <div class="grand-total-block">
+        <div class="grand-total-label">Grand Total</div>
+        <div class="grand-total-value">
+            Rp {{ number_format($grandTotal, 0, ',', '.') }}
+        </div>
+    </div>
+</div>
 
 </div>
 

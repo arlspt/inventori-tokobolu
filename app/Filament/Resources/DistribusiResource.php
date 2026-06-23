@@ -251,6 +251,7 @@ class DistribusiResource extends Resource
                                         }
                                     }),
                                 TextInput::make('harga')
+                                    ->label('Harga Satuan')
                                     ->numeric()
                                     ->prefix('Rp.')
                                     ->disabled()
@@ -327,7 +328,13 @@ class DistribusiResource extends Resource
         return $table
             ->modifyQueryUsing(
                 fn($query) => $query
-                    ->with(['detail.produk', 'reseller', 'user'])
+                    ->with([
+                        'detail.produk',
+                        'reseller',
+                        'user',
+                        'retur' => fn($q) => $q->withTrashed(), // ✅ load semua retur termasuk yang deleted
+                        'retur.detail',
+                    ])
                     ->orderByRaw("CASE WHEN status = 'dibatalkan' THEN 1 ELSE 0 END ASC")
                     ->orderBy('created_at', 'desc')
             )
@@ -375,14 +382,27 @@ class DistribusiResource extends Resource
 
                 TextColumn::make('total')
                     ->label('Total')
-                    ->alignEnd()      // ✅ isi kanan
-                    ->getStateUsing(
-                        fn($record) =>
-                        $record->detail->sum('subtotal')
-                    )
+                    ->alignEnd()
+                    ->getStateUsing(function ($record) {
+                        $totalDistribusi = $record->detail->sum('subtotal');
+
+                        // ✅ hitung nilai retur dari jumlah × harga di distribusi_detail
+                        $totalRetur = $record->retur
+                            ->whereNull('deleted_at') // ✅ skip yang dibatalkan
+                            ->flatMap(fn($retur) => $retur->detail)
+                            ->sum(function ($returDetail) use ($record) {
+                                // cari harga produk ini di distribusi_detail
+                                $distribusiDetail = $record->detail
+                                    ->firstWhere('produk_id', $returDetail->produk_id);
+
+                                $harga = $distribusiDetail?->harga ?? 0;
+                                return $returDetail->jumlah * $harga;
+                            });
+
+                        return max(0, $totalDistribusi - $totalRetur);
+                    })
                     ->formatStateUsing(
-                        fn($state) =>
-                        'Rp ' . number_format($state, 0, ',', '.')
+                        fn($state) => 'Rp ' . number_format($state, 0, ',', '.')
                     ),
 
                 TextColumn::make('status_pembayaran')
@@ -418,6 +438,13 @@ class DistribusiResource extends Resource
                     ->options([
                         'dikirim' => 'Dikirim',
                         'dibatalkan' => 'Dibatalkan',
+                    ]),
+                Tables\Filters\SelectFilter::make('status_pembayaran')
+                    ->label('Pembayaran')
+                    ->placeholder('Semua')
+                    ->options([
+                        'belum_bayar' => 'Belum Bayar',
+                        'lunas' => 'Lunas',
                     ]),
                 Tables\Filters\SelectFilter::make('reseller_id')
                     ->label('Reseller')
@@ -652,7 +679,9 @@ class DistribusiResource extends Resource
                             InfoSection::make('Data Varian')
                                 ->schema([
                                     \Filament\Infolists\Components\View::make('infolists.components.distribusi-detail-table')
-                                        ->viewData(fn($record) => ['detail' => $record->detail])
+                                        ->viewData(fn($record) => [
+                                            'detail' => $record->detail->load(['produk', 'distribusi.retur.detail'])
+                                        ])
                                 ]),
                         ]),
                     Tables\Actions\EditAction::make()

@@ -144,70 +144,46 @@ class DashboardStats extends StatsOverviewWidget
     // ── range periode yang dipilih ──
     private function getDateRange(): array
     {
-        // HARIAN
+        // HARI INI
         if ($this->filterMode === 'harian') {
-
             return [
-                now()->toDateString(),
-                now()->toDateString(),
+                now()->startOfDay(),
+                now()->endOfDay(),
             ];
         }
 
         // MINGGUAN
         if ($this->filterMode === 'mingguan') {
 
-            $start =
-                now()
+            $start = now()
                 ->startOfMonth()
-                ->addDays(
-                    ($this->minggu - 1) * 7
-                );
+                ->addDays(($this->minggu - 1) * 7)
+                ->startOfDay();
 
-            $end =
-                $start
+            $end = $start
                 ->copy()
-                ->addDays(6);
+                ->addDays(6)
+                ->endOfDay();
 
-            return [
-                $start->toDateString(),
-                $end->toDateString(),
-            ];
+            return [$start, $end];
         }
 
         // BULANAN
-        $date =
-            now()
-            ->month($this->bulan);
+        $date = now()->month($this->bulan);
 
         return [
-
-            $date
-                ->startOfMonth()
-                ->toDateString(),
-
-            $date
-                ->endOfMonth()
-                ->toDateString(),
-
+            $date->copy()->startOfMonth()->startOfDay(),
+            $date->copy()->endOfMonth()->endOfDay(),
         ];
     }
 
-    private function getLastWeekRange()
+    private function getLastWeekRange(): array
     {
-        [
-            $start,
-            $end
-        ] =
-            $this->getDateRange();
+        [$start, $end] = $this->getDateRange();
 
         return [
-            Carbon::parse($start)
-                ->subWeek()
-                ->toDateString(),
-
-            Carbon::parse($end)
-                ->subWeek()
-                ->toDateString(),
+            Carbon::parse($start)->subWeek(),
+            Carbon::parse($end)->subWeek(),
         ];
     }
 }

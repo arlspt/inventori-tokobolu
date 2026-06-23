@@ -180,6 +180,7 @@ th {
 th:nth-child(2), td:nth-child(2) { text-align: center; }
 th:nth-child(3), td:nth-child(3) { text-align: right; }
 th:nth-child(4), td:nth-child(4) { text-align: center; }
+th:nth-child(5), td:nth-child(5) { text-align: right; }
 
 td {
     padding: 6px 8px;
@@ -330,35 +331,75 @@ tbody tr:last-child td { border-bottom: none; }
         </div>
     </div>
 
+{{-- hitung retur per produk --}}
+@php
+    $returPerProduk = $distribusi->retur
+        ->whereNull('deleted_at')
+        ->flatMap(fn($r) => $r->detail)
+        ->groupBy('produk_id')
+        ->map(fn($items) => $items->sum('jumlah'));
+
+    $totalDistribusi = $distribusi->detail->sum('subtotal');
+    $totalRetur = 0;
+@endphp
+
     {{-- TABEL PRODUK --}}
     <table>
         <thead>
             <tr>
                 <th>Nama Produk</th>
-                <th>Qty</th>
-                <th>Harga</th>
-                <th>Jumlah</th>
+            <th>Qty</th>
+            <th>Harga Satuan</th>
+            <th style="text-align:center;">Retur</th>
+            <th>Jumlah</th>
             </tr>
         </thead>
         <tbody>
-            @foreach ($distribusi->detail as $item)
-            <tr>
-                <td>{{ $item->produk->nama_produk ?? '-' }}</td>
-                <td>{{ $item->jumlah }}</td>
-                <td>Rp {{ number_format($item->harga, 0, ',', '.') }}</td>
-                <td>Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
-            </tr>
-            @endforeach
-        </tbody>
+        @foreach ($distribusi->detail as $item)
+        @php
+            $jumlahRetur   = $returPerProduk->get($item->produk_id, 0);
+            $subtotalRetur = $jumlahRetur * $item->harga;
+            $totalRetur   += $subtotalRetur;
+            $subtotalBersih = $item->subtotal - $subtotalRetur;
+        @endphp
+        <tr>
+            <td>{{ $item->produk->nama_produk ?? '-' }}</td>
+            <td>{{ $item->jumlah }}</td>
+            <td>Rp {{ number_format($item->harga, 0, ',', '.') }}</td>
+            <td style="text-align:center;">
+                {{ $jumlahRetur > 0 ? '' . $jumlahRetur : '-' }}
+            </td>
+            <td>
+                @if ($jumlahRetur > 0)
+                    <span style="text-decoration:line-through; color:#b5ada6; font-size:8px;">
+                        Rp {{ number_format($item->subtotal, 0, ',', '.') }}
+                    </span><br>
+                    Rp {{ number_format($subtotalBersih, 0, ',', '.') }}
+                @else
+                    Rp {{ number_format($item->subtotal, 0, ',', '.') }}
+                @endif
+            </td>
+        </tr>
+        @endforeach
+    </tbody>
     </table>
 
     {{-- TOTAL: label kiri mentok, angka kanan mentok --}}
-    <div class="total-area">
-        <div class="total-label">Total :</div>
-        <div class="total-value">
-            Rp {{ number_format($distribusi->detail->sum('subtotal'), 0, ',', '.') }}
-        </div>
+@php $totalAkhir = max(0, $totalDistribusi - $totalRetur); @endphp
+
+@if ($totalRetur > 0)
+<div style="display:flex; justify-content:space-between; font-size:9px; color:#dc2626; margin-bottom:2mm;">
+    <span>Potongan Retur :</span>
+    <span>- Rp {{ number_format($totalRetur, 0, ',', '.') }}</span>
+</div>
+@endif
+
+<div class="total-area">
+    <div class="total-label">Total :</div>
+    <div class="total-value">
+        Rp {{ number_format($totalAkhir, 0, ',', '.') }}
     </div>
+</div>
 
     {{-- TANDA TANGAN --}}
     <div class="signatures">

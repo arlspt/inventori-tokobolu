@@ -88,7 +88,7 @@
                 {{-- TOTAL HARGA --}}
                 <div class="text-right">
                     <div class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">
-                        Total Harga Penggunaan
+                        Total Penggunaan Bahan (Rp)
                     </div>
                     <div class="text-lg font-bold text-gray-800 dark:text-gray-100">
                         Rp {{ number_format($this->getTotalHarga(), 0, ',', '.') }}

@@ -233,6 +233,7 @@ class ProduksiResource extends Resource
                                                         TextInput::make('jumlah')
                                                             ->numeric()
                                                             ->required()
+                                                            ->placeholder('Masukan Jumlah Untuk 1 Varian')
                                                             ->reactive()
                                                             ->label(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
                                                                 'ml' => 'Jumlah (ml)',

@@ -11,20 +11,96 @@ class ActivityLogObserver
 
     public function created($model): void
     {
-        $this->buatLog($model, 'Tambah');
+        // Detail tidak dicatat saat tambah
+        if (
+            !$this->bolehDicatat($model)
+            || $this->modelDetail($model)
+        ) {
+            return;
+        }
+
+        $this->buatLog(
+            $model,
+            'Tambah'
+        );
     }
 
     public function updated($model): void
     {
-        // hanya jika memang ada perubahan
-        if ($model->getChanges()) {
-            $this->buatLog($model, 'Ubah');
+        if (
+            !$this->bolehDicatat($model)
+            || !$model->wasChanged()
+        ) {
+            return;
         }
+
+        // kalau update detail → anggap update modul induk
+        if (
+            $this->modelDetail($model)
+        ) {
+            $model =
+                $this->parentModel($model)
+                ?? $model;
+        }
+
+        $this->buatLog(
+            $model,
+            'Ubah'
+        );
     }
 
     public function deleted($model): void
     {
-        $this->buatLog($model, 'Hapus');
+        // Detail tidak dicatat saat hapus
+        if (
+            !$this->bolehDicatat($model)
+            || $this->modelDetail($model)
+        ) {
+            return;
+        }
+
+        $this->buatLog(
+            $model,
+            'Hapus'
+        );
+    }
+
+    protected function modelDetail(
+        $model
+    ): bool {
+
+        return in_array(
+            class_basename($model),
+            [
+                'PengadaanDetail',
+                'ProduksiDetail',
+                'DistribusiDetail',
+                'ReturDetail',
+                'DetailRetur',
+            ]
+        );
+    }
+
+    protected function parentModel(
+        $model
+    ) {
+        return match (class_basename($model)) {
+
+            'PengadaanDetail'
+            => $model->pengadaan,
+
+            'ProduksiDetail'
+            => $model->produksi,
+
+            'DistribusiDetail'
+            => $model->distribusi,
+
+            'ReturDetail',
+            'DetailRetur'
+            => $model->retur,
+
+            default => null,
+        };
     }
 
     protected function bolehDicatat($model): bool
@@ -32,17 +108,21 @@ class ActivityLogObserver
         return in_array(
             class_basename($model),
             [
-
-                // MASTER
                 'User',
 
-                // TRANSAKSI UTAMA
                 'Pengadaan',
-                'Produksi',
-                'Distribusi',
-                'Retur',
+                'PengadaanDetail',
 
-                // opsional
+                'Produksi',
+                'ProduksiDetail',
+
+                'Distribusi',
+                'DistribusiDetail',
+
+                'Retur',
+                'ReturDetail',
+                'DetailRetur',
+
                 'Supplier',
                 'Reseller',
             ]
@@ -58,47 +138,57 @@ class ActivityLogObserver
             return;
         }
 
-        // CEGAH LOG DUPLIKAT
-        if (!$this->bolehDicatat($model)) {
-            return;
-        }
-
         LogAktivitas::create([
-
             'user_id' => Auth::id(),
 
-            'modul' => $this->namaModul($model),
+            'modul' =>
+            $this->namaModul($model),
 
-            'aktivitas' => $aktivitas,
+            'aktivitas' =>
+            $aktivitas,
 
-            'deskripsi' => match ($aktivitas) {
+            'deskripsi' =>
+            match ($aktivitas) {
 
                 'Tambah'
-                => 'Menambahkan data ' . $this->namaModul($model),
+                =>
+                'Menambahkan data '
+                    . $this->namaModul($model),
 
                 'Ubah'
-                => 'Mengubah data ' . $this->namaModul($model),
+                =>
+                'Mengubah data '
+                    . $this->namaModul($model),
 
                 'Hapus'
-                => 'Menghapus data ' . $this->namaModul($model),
+                =>
+                'Menghapus data '
+                    . $this->namaModul($model),
             },
         ]);
     }
 
-    protected function namaModul($model): string
-    {
+    protected function namaModul(
+        $model
+    ): string {
+
         return match (class_basename($model)) {
 
-            'Pengadaan'
+            'Pengadaan',
+            'PengadaanDetail'
             => 'pengadaan bahan baku',
 
-            'Produksi'
+            'Produksi',
+            'ProduksiDetail'
             => 'produksi',
 
-            'Distribusi'
+            'Distribusi',
+            'DistribusiDetail'
             => 'distribusi',
 
-            'Retur'
+            'Retur',
+            'ReturDetail',
+            'DetailRetur'
             => 'retur',
 
             'Supplier'
@@ -111,7 +201,9 @@ class ActivityLogObserver
             => 'manajemen user',
 
             default =>
-            strtolower(class_basename($model)),
+            strtolower(
+                class_basename($model)
+            ),
         };
     }
 }
