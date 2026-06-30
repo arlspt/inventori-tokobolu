@@ -9,9 +9,17 @@ class Resep extends Model
     protected $table = 'resep';
 
     protected $fillable = [
-        'produk_id', // nanti bisa jadi varian_id
+        'produk_id',
         'bahan_baku_id',
         'jumlah',
+        'versi',
+        'berlaku_dari',
+        'aktif',
+    ];
+
+    protected $casts = [
+        'aktif'        => 'boolean',
+        'berlaku_dari' => 'date',
     ];
 
     public function produk()

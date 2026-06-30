@@ -13,7 +13,11 @@ class ProduksiDetail extends Model
         'produksi_id',
         'produk_id',
         'jumlah_produksi',
-        'gagal'
+        'gagal',
+        'expired_at',
+    ];
+    protected $casts = [
+        'expired_at' => 'date',
     ];
 
     public function produksi()
@@ -27,6 +31,15 @@ class ProduksiDetail extends Model
     }
     protected static function booted()
     {
+        // ✅ set expired_at otomatis saat creating
+        static::creating(function ($detail) {
+            if (!$detail->expired_at && $detail->produksi_id) {
+                $tanggal = \App\Models\Produksi::find($detail->produksi_id)?->tanggal;
+                if ($tanggal) {
+                    $detail->expired_at = \Carbon\Carbon::parse($tanggal)->addDays(7);
+                }
+            }
+        });
         // 🔥 CREATE
         static::created(function ($detail) {
             DB::transaction(function () use ($detail) {

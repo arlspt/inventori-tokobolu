@@ -36,17 +36,23 @@
                     @forelse ($this->getStokHistory()->take(5) as $bahan)
                         <tr class="transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
                             <td class="px-3 py-2 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
-                                @if ($bahan['low'])
-                                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0"></span>
-                                @else
-                                    <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-400 flex-shrink-0"></span>
-                                @endif
-                                {{ $bahan['nama'] }}
-                            </td>
-                            <td class="px-3 py-2 text-right font-medium
-                                {{ $bahan['low'] ? 'text-red-500' : 'text-gray-800 dark:text-gray-200' }}">
-                                {{ $bahan['stok_label'] }}
-                            </td>
+    @if ($bahan['status'] === 'habis')
+        <span class="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color:#ef4444;"></span>
+    @elseif ($bahan['status'] === 'menipis')
+        <span class="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color:#eab308;"></span>
+    @else
+        <span class="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0" style="background-color:#22c55e;"></span>
+    @endif
+    {{ $bahan['nama'] }}
+</td>
+<td class="px-3 py-2 text-right font-medium" style="
+    @if ($bahan['status'] === 'habis') color:#ef4444;
+    @elseif ($bahan['status'] === 'menipis') color:#eab308;
+    @else color:inherit;
+    @endif
+">
+    {{ $bahan['stok_label'] }}
+</td>
                         </tr>
                     @empty
                         <tr>
@@ -131,21 +137,29 @@
                                     <td class="px-4 py-2.5 text-gray-700 dark:text-gray-200">
                                         {{ $bahan['nama'] }}
                                     </td>
-                                    <td class="px-4 py-2.5 text-right font-semibold
-                                        {{ $bahan['low'] ? 'text-red-500' : 'text-gray-800 dark:text-gray-200' }}">
-                                        {{ $bahan['stok_label'] }}
-                                    </td>
-                                    <td class="px-4 py-2.5 text-center">
-                                        @if ($bahan['low'])
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                                                Menipis
-                                            </span>
-                                        @else
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400">
-                                                Aman
-                                            </span>
-                                        @endif
-                                    </td>
+                                    <td class="px-4 py-2.5 text-right font-semibold" style="
+    @if ($bahan['status'] === 'habis') color:#ef4444;
+    @elseif ($bahan['status'] === 'menipis') color:#eab308;
+    @else color:inherit;
+    @endif
+">
+    {{ $bahan['stok_label'] }}
+</td>
+<td class="px-4 py-2.5 text-center">
+    @if ($bahan['status'] === 'habis')
+        <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#fee2e2;color:#dc2626;">
+            Habis
+        </span>
+    @elseif ($bahan['status'] === 'menipis')
+        <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#fef9c3;color:#ca8a04;">
+            Menipis
+        </span>
+    @else
+        <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#dcfce7;color:#16a34a;">
+            Aman
+        </span>
+    @endif
+</td>
                                 </tr>
                             @endforeach
                         </tbody>

@@ -22,6 +22,8 @@ use Filament\Tables\Actions\ActionGroup;
 use Filament\Infolists\Components\Section as InfoSection;
 use Filament\Infolists\Components\TextEntry;
 use Carbon\Carbon;
+use App\Models\BeritaAcara;
+use App\Models\BahanBaku;
 
 class PengadaanResource extends Resource
 {
@@ -286,7 +288,7 @@ class PengadaanResource extends Resource
                                             return;
                                         }
                                         $bahan =
-                                            \App\Models\BahanBaku::find(
+                                            BahanBaku::find(
                                                 $get('bahan_baku_id')
                                             );
                                         if (!$bahan) {
@@ -471,6 +473,127 @@ class PengadaanResource extends Resource
                         return 'Bulan: ' . Carbon::createFromFormat('Y-m', $data['bulan'])
                             ->locale('id')->translatedFormat('F Y');
                     }),
+            ])
+            ->headerActions([
+                \Filament\Tables\Actions\Action::make('berita_acara')
+                    ->label('Berita Acara')
+                    ->icon('heroicon-o-document-text')
+                    ->color('success') // ✅ hijau sesuai primary
+                    ->form([
+                        Select::make('topik')
+                            ->label('Topik')
+                            ->options(['bahan_baku' => 'Bahan Baku'])
+                            ->default('bahan_baku')
+                            ->disabled()
+                            ->dehydrated()
+                            ->required(),
+
+                        Select::make('kategori')
+                            ->label('Kategori')
+                            ->options([
+                                'hilang'     => 'Hilang',
+                                'rusak'      => 'Rusak',
+                                'cacat'      => 'Cacat',
+                                'tumpah'     => 'Tumpah',
+                                'kadaluarsa' => 'Kadaluarsa',
+                                'lainnya'    => 'Lainnya',
+                            ])
+                            ->native(false)
+                            ->placeholder('Pilih Kategori Aktual')
+                            ->required(),
+
+                        Select::make('nama_item')
+                            ->label('Bahan Baku')
+                            ->options(BahanBaku::orderBy('nama_bahan')->pluck('nama_bahan', 'nama_bahan'))
+                            ->searchable()
+                            ->required()
+                            ->placeholder('Pilih Bahan Baku')
+                            ->live(),
+
+                        // ✅ GRID — satuan dan jumlah bersebelahan
+                        \Filament\Forms\Components\Grid::make(2)
+                            ->schema([
+                                Select::make('satuan')
+                                    ->label('Satuan')
+                                    ->options(function ($get) {
+                                        // ✅ cari satuan bahan baku yang dipilih
+                                        $bahan = BahanBaku::where('nama_bahan', $get('nama_item'))->first();
+                                        if (!$bahan) return ['kg' => 'Kilogram', 'gram' => 'Gram']; // default
+
+                                        return match ($bahan->satuan) {
+                                            'gram' => ['kg' => 'Kilogram', 'gram' => 'Gram'],
+                                            'ml'   => ['liter' => 'Liter', 'ml' => 'Mililiter'],
+                                            default => ['kg' => 'Kilogram', 'gram' => 'Gram'],
+                                        };
+                                    })
+                                    ->native(false)
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function ($state, $get, $set) {
+                                        $jumlahLama = (float) ($get('jumlah') ?? 0);
+                                        if ($jumlahLama <= 0) return;
+
+                                        $set('jumlah', match (true) {
+                                            in_array($state, ['kg', 'liter']) => $jumlahLama / 1000,
+                                            in_array($state, ['gram', 'ml'])  => $jumlahLama * 1000,
+                                            default => $jumlahLama,
+                                        });
+                                    })
+                                    ->placeholder(''),
+
+                                TextInput::make('jumlah')
+                                    ->label('Jumlah Terdampak')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(0.001)
+                                    ->live()
+                                    ->placeholder(function ($get) {
+                                        return match ($get('satuan')) {
+                                            'kg'    => 'Masukan Jumlah per Kilogram',
+                                            'gram'  => 'Masukan Jumlah per Gram',
+                                            'liter' => 'Masukan Jumlah per Liter',
+                                            'ml'    => 'Masukan Jumlah per Mililiter',
+                                            default => 'Pilih Satuan Terlebih Dahulu',
+                                        };
+                                    })
+                                    ->postfix(function ($get) {
+                                        return match ($get('satuan')) {
+                                            'gram'  => 'gram',
+                                            'kg'    => 'Kg',
+                                            'ml'    => 'ml',
+                                            'liter' => 'L',
+                                            default => '',
+                                        };
+                                    }),
+                            ]),
+
+                        Textarea::make('keterangan')
+                            ->label('Keterangan')
+                            ->placeholder('Jelaskan kondisi aktual yang terjadi')
+                            ->rows(3),
+                    ])
+                    ->action(function (array $data) {
+                        $bahan = BahanBaku::find($data['nama_item']); // ✅ ambil nama dari id
+
+                        BeritaAcara::create([
+                            'user_id'    => Auth::id(),
+                            'modul'      => 'bahan_baku',
+                            'topik'      => 'bahan_baku',
+                            'kategori'   => $data['kategori'],
+                            'nama_item'  => $bahan?->nama_bahan ?? $data['nama_item'], // ✅ simpan nama, bukan id
+                            'jumlah'     => $data['jumlah'],
+                            'satuan'     => $data['satuan'],
+                            'keterangan' => $data['keterangan'] ?? null,
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Berita acara berhasil dicatat')
+                            ->success()
+                            ->send();
+                    })
+                    ->modalHeading('Tambah Berita Acara — Bahan Baku')
+                    ->modalSubmitActionLabel('Simpan')
+                    ->modalCancelActionLabel('Batal'),
             ])
             ->actions([
                 // DROPDOWN ACTION

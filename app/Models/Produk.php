@@ -28,8 +28,15 @@ class Produk extends Model
     {
         return $this->hasMany(ReturDetail::class);
     }
+    // ✅ resep aktif — dipakai untuk produksi
     public function resep()
     {
-        return $this->hasMany(Resep::class);
+        return $this->hasMany(Resep::class)->where('aktif', true);
+    }
+
+    // ✅ semua histori resep — untuk ditampilkan di kelola varian
+    public function resepHistori()
+    {
+        return $this->hasMany(Resep::class)->orderBy('versi', 'desc');
     }
 }

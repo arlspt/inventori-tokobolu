@@ -55,7 +55,8 @@ class BahanBakuWidget extends Widget
                 'stok_raw'    => $bahan->stok,
                 'satuan'      => $bahan->satuan,
                 'stok_label'  => $this->formatStok($bahan->stok, $bahan->satuan),
-                'low'         => $bahan->stok <= 1000, // warning kalau stok <= 1000
+                'status' => $bahan->stok === 0 ? 'habis' : ($bahan->stok < 3000 ? 'menipis' : 'aman'),
+                'low'    => $bahan->stok < 3000,
             ];
         });
     }
@@ -106,7 +107,8 @@ class BahanBakuWidget extends Widget
                 'stok_raw'   => $stokPadaBulan,
                 'satuan'     => $bahan->satuan,
                 'stok_label' => $this->formatStok($stokPadaBulan, $bahan->satuan),
-                'low'        => $stokPadaBulan <= 1000, // warning kalau stok <= 1000
+                'status' => $bahan->stok === 0 ? 'habis' : ($bahan->stok < 3000 ? 'menipis' : 'aman'),
+                'low'    => $bahan->stok < 3000,
             ];
         });
     }

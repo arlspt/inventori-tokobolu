@@ -22,6 +22,7 @@ use Carbon\Carbon;
 use Filament\Forms\Components\Actions\Action;
 use Illuminate\Validation\ValidationException;
 use Filament\Notifications\Notification;
+use App\Models\BeritaAcara;
 
 class ProduksiResource extends Resource
 {
@@ -131,8 +132,12 @@ class ProduksiResource extends Resource
                                         Action::make('kelolaProduk')
                                             ->label('Kelola Varian')
                                             ->icon('heroicon-o-cog-6-tooth')
-                                            ->modalHeading('Kelola Varian')
                                             ->modalSubmitActionLabel('Simpan')
+                                            ->requiresConfirmation()
+                                            ->modalHeading('Simpan Perubahan Varian?')
+                                            ->modalDescription('Jika resep diubah, sistem akan membuat versi resep baru. Resep lama tetap tersimpan dan tidak dapat digunakan untuk produksi baru.')
+                                            ->modalSubmitActionLabel('Ya, Simpan')
+                                            ->modalCancelActionLabel('Batal')
                                             ->form([
                                                 // MODE
                                                 Select::make('mode')
@@ -233,7 +238,7 @@ class ProduksiResource extends Resource
                                                         TextInput::make('jumlah')
                                                             ->numeric()
                                                             ->required()
-                                                            ->placeholder('Masukan Jumlah Untuk 1 Varian')
+                                                            ->placeholder('per 1 Varian')
                                                             ->reactive()
                                                             ->label(fn($get) => match (\App\Models\BahanBaku::find($get('bahan_baku_id'))?->satuan) {
                                                                 'ml' => 'Jumlah (ml)',
@@ -256,6 +261,72 @@ class ProduksiResource extends Resource
                                                         }
                                                     })->columns(2),
 
+                                                // ✅ dropdown pilih versi histori — hanya muncul saat mode edit & produk sudah dipilih
+                                                Select::make('versi_histori')
+                                                    ->label('Lihat Histori Resep (opsional)')
+                                                    ->placeholder('Pilih versi untuk melihat detail resep')
+                                                    ->visible(fn($get) => $get('mode') === 'edit' && filled($get('produk_id')))
+                                                    ->options(function ($get) {
+                                                        $produkId = $get('produk_id');
+                                                        if (!$produkId) return [];
+
+                                                        return \App\Models\Resep::where('produk_id', $produkId)
+                                                            ->select('versi', 'aktif', 'berlaku_dari')
+                                                            ->distinct()
+                                                            ->orderBy('versi', 'desc')
+                                                            ->get()
+                                                            ->mapWithKeys(function ($r) {
+                                                                $tgl   = $r->berlaku_dari
+                                                                    ? \Carbon\Carbon::parse($r->berlaku_dari)
+                                                                    ->locale('id')->translatedFormat('d M Y')
+                                                                    : '-';
+                                                                $label = "Versi {$r->versi} — {$tgl}";
+                                                                $label .= $r->aktif ? ' (Aktif)' : ' (Tidak Aktif)';
+                                                                return [$r->versi => $label];
+                                                            })
+                                                            ->toArray();
+                                                    })
+                                                    ->native(false)
+                                                    ->live()
+                                                    ->dehydrated(false), // ✅ tidak disimpan ke DB
+
+                                                // ✅ detail bahan resep versi yang dipilih
+                                                \Filament\Forms\Components\Placeholder::make('detail_versi_histori')
+                                                    ->label('Detail Resep')
+                                                    ->visible(
+                                                        fn($get) =>
+                                                        $get('mode') === 'edit' &&
+                                                            filled($get('produk_id')) &&
+                                                            filled($get('versi_histori'))
+                                                    )
+                                                    ->content(function ($get) {
+                                                        $produkId = $get('produk_id');
+                                                        $versi    = $get('versi_histori');
+                                                        if (!$produkId || !$versi) return '-';
+
+                                                        $resep = \App\Models\Resep::where('produk_id', $produkId)
+                                                            ->where('versi', $versi)
+                                                            ->with('bahanBaku')
+                                                            ->get();
+
+                                                        if ($resep->isEmpty()) return 'Tidak ada data.';
+
+                                                        return $resep->map(function ($r) {
+                                                            $nama   = $r->bahanBaku->nama_bahan ?? '-';
+                                                            $satuan = $r->bahanBaku->satuan ?? 'gram';
+                                                            $jumlah = in_array($satuan, ['gram', 'ml'])
+                                                                ? number_format($r->jumlah / 1000, 2) . ($satuan === 'gram' ? ' Kg' : ' L')
+                                                                : $r->jumlah . ' ' . $satuan;
+                                                            return "• {$nama}: {$jumlah}";
+                                                        })->join("\n");
+                                                    }),
+
+                                                // tambahkan di akhir form kelolaProduk, sebelum tutup schema
+                                                \Filament\Forms\Components\Checkbox::make('konfirmasi_versi')
+                                                    ->label('Saya memahami bahwa perubahan resep akan membuat versi baru. Resep lama tetap tersimpan.')
+                                                    ->visible(fn($get) => $get('mode') === 'edit')
+                                                    ->required(fn($get) => $get('mode') === 'edit')
+                                                    ->accepted(fn($get) => $get('mode') === 'edit'),
                                             ])
                                             ->action(function ($data) {
 
@@ -275,21 +346,56 @@ class ProduksiResource extends Resource
                                                     }
                                                 }
 
-                                                // 🔥 EDIT
+                                                // 🔥 EDIT — dengan versioning
                                                 if ($data['mode'] === 'edit') {
                                                     $produk = \App\Models\Produk::find($data['produk_id']);
                                                     if (!$produk) return;
+
+                                                    // update nama dan harga produk
                                                     $produk->update([
                                                         'nama_produk' => $data['nama_produk'] ?? $produk->nama_produk,
-                                                        'harga' => $data['harga'] ?? $produk->harga,
+                                                        'harga'       => $data['harga'] ?? $produk->harga,
                                                     ]);
-                                                    \App\Models\Resep::where('produk_id', $produk->id)->delete();
-                                                    foreach ($data['resep'] ?? [] as $item) {
-                                                        \App\Models\Resep::create([
-                                                            'produk_id' => $produk->id,
-                                                            'bahan_baku_id' => $item['bahan_baku_id'],
-                                                            'jumlah' => $item['jumlah'],
-                                                        ]);
+
+                                                    // ✅ cek apakah resep berubah
+                                                    $resepLama = \App\Models\Resep::where('produk_id', $produk->id)
+                                                        ->where('aktif', true)
+                                                        ->get();
+
+                                                    $resepBaru = collect($data['resep'] ?? []);
+
+                                                    $resepBerubah = $resepLama->count() !== $resepBaru->count() ||
+                                                        $resepBaru->some(function ($item) use ($resepLama) {
+                                                            $match = $resepLama->firstWhere('bahan_baku_id', $item['bahan_baku_id']);
+                                                            return !$match || $match->jumlah != $item['jumlah'];
+                                                        });
+
+                                                    if ($resepBerubah) {
+                                                        // ✅ nonaktifkan resep lama
+                                                        \App\Models\Resep::where('produk_id', $produk->id)
+                                                            ->where('aktif', true)
+                                                            ->update(['aktif' => false]);
+
+                                                        // ✅ buat versi baru
+                                                        $versiTerbaru = \App\Models\Resep::where('produk_id', $produk->id)
+                                                            ->max('versi') + 1;
+
+                                                        foreach ($data['resep'] ?? [] as $item) {
+                                                            \App\Models\Resep::create([
+                                                                'produk_id'    => $produk->id,
+                                                                'bahan_baku_id' => $item['bahan_baku_id'],
+                                                                'jumlah'       => $item['jumlah'],
+                                                                'versi'        => $versiTerbaru,
+                                                                'berlaku_dari' => now()->toDateString(),
+                                                                'aktif'        => true,
+                                                            ]);
+                                                        }
+
+                                                        \Filament\Notifications\Notification::make()
+                                                            ->title("Resep diperbarui ke Versi $versiTerbaru")
+                                                            ->body('Resep versi sebelumnya tetap tersimpan di histori.')
+                                                            ->success()
+                                                            ->send();
                                                     }
                                                 }
 
@@ -301,7 +407,31 @@ class ProduksiResource extends Resource
                                                     $produk->delete();
                                                 }
                                             })
+
                                     ),
+                                \Filament\Forms\Components\Placeholder::make('histori_resep')
+                                    ->label('Histori Versi Resep')
+                                    ->visible(fn($get) => $get('mode') === 'edit' && filled($get('produk_id')))
+                                    ->content(function ($get) {
+                                        $produkId = $get('produk_id');
+                                        if (!$produkId) return '-';
+
+                                        $histori = \App\Models\Resep::where('produk_id', $produkId)
+                                            ->where('aktif', false)
+                                            ->select('versi', 'berlaku_dari')
+                                            ->distinct()
+                                            ->orderBy('versi', 'desc')
+                                            ->get();
+
+                                        if ($histori->isEmpty()) return 'Belum ada histori versi sebelumnya.';
+
+                                        return $histori->map(function ($r) {
+                                            $tgl = $r->berlaku_dari
+                                                ? \Carbon\Carbon::parse($r->berlaku_dari)->locale('id')->translatedFormat('d M Y')
+                                                : '-';
+                                            return "Versi {$r->versi} — berlaku sejak {$tgl}";
+                                        })->join(' | ');
+                                    }),
 
                                 // 🔥 JUMLAH
                                 TextInput::make('jumlah_produksi')
@@ -430,7 +560,35 @@ class ProduksiResource extends Resource
                             return ($item->jumlah_produksi ?? 0) - ($item->gagal ?? 0);
                         });
                     }),
+                TextColumn::make('expired_at')
+                    ->label('Expired')
+                    ->getStateUsing(function ($record) {
+                        // ✅ ambil expired_at paling awal dari semua detail
+                        $earliest = $record->produksiDetail
+                            ->whereNotNull('expired_at')
+                            ->sortBy('expired_at')
+                            ->first();
+                        return $earliest?->expired_at;
+                    })
+                    ->formatStateUsing(function ($state) {
+                        if (!$state) return '-';
+                        return Carbon::parse($state)
+                            ->locale('id')
+                            ->translatedFormat('d M Y');
+                    }),
             ])
+            ->recordClasses(function ($record) {
+                $earliest = $record->produksiDetail
+                    ->whereNotNull('expired_at')
+                    ->sortBy('expired_at')
+                    ->first();
+
+                if (!$earliest) return null;
+
+                $isExpired = Carbon::parse($earliest->expired_at)->isPast();
+
+                return $isExpired ? 'bg-red-50 dark:bg-red-900/20' : null;
+            })
             ->defaultSort('created_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('user_id')
@@ -445,7 +603,7 @@ class ProduksiResource extends Resource
 
                 Tables\Filters\Filter::make('bulan')
                     ->form([
-                        \Filament\Forms\Components\Select::make('bulan')
+                        Select::make('bulan')
                             ->label('Bulan')
                             ->options(function () {
                                 return \App\Models\Produksi::selectRaw('DATE_FORMAT(tanggal, "%Y-%m") as bulan_key')
@@ -471,6 +629,86 @@ class ProduksiResource extends Resource
                         return 'Bulan: ' . Carbon::createFromFormat('Y-m', $data['bulan'])
                             ->locale('id')->translatedFormat('F Y');
                     }),
+            ])
+            ->headerActions([
+                \Filament\Tables\Actions\Action::make('berita_acara')
+                    ->label('Berita Acara')
+                    ->icon('heroicon-o-document-text')
+                    ->color('success') // ✅ hijau sesuai primary
+                    ->form([
+                        \Filament\Forms\Components\Select::make('topik')
+                            ->label('Topik')
+                            ->options(['hasil_produksi' => 'Hasil Produksi'])
+                            ->default('hasil_produksi')
+                            ->disabled()
+                            ->dehydrated()
+                            ->required(),
+
+                        \Filament\Forms\Components\Select::make('kategori')
+                            ->label('Kategori')
+                            ->options([
+                                'hilang'     => 'Hilang',
+                                'rusak'      => 'Rusak',
+                                'cacat'      => 'Cacat',
+                                'tumpah'     => 'Tumpah',
+                                'kadaluarsa' => 'Kadaluarsa',
+                                'lainnya'    => 'Lainnya',
+                            ])
+                            ->native(false)
+                            ->required(),
+
+                        \Filament\Forms\Components\Select::make('nama_item')
+                            ->label('Produk')
+                            ->options(\App\Models\Produk::orderBy('nama_produk')->pluck('nama_produk', 'nama_produk'))
+                            ->searchable()
+                            ->required(),
+
+                        // ✅ GRID — satuan hidden, jumlah dengan postfix pcs
+                        \Filament\Forms\Components\Grid::make(2)
+                            ->schema([
+                                \Filament\Forms\Components\Select::make('satuan')
+                                    ->label('Satuan')
+                                    ->options(['pcs' => 'Pcs'])
+                                    ->default('pcs')
+                                    ->disabled()
+                                    ->dehydrated()
+                                    ->hidden() // ✅ disembunyikan
+                                    ->required(),
+
+                                \Filament\Forms\Components\TextInput::make('jumlah')
+                                    ->label('Jumlah Terdampak')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(1)
+                                    ->postfix('pcs') // ✅ fixed pcs
+                                    ->columnSpan(2), // ✅ full width karena satuan hidden
+                            ]),
+
+                        \Filament\Forms\Components\Textarea::make('keterangan')
+                            ->label('Keterangan')
+                            ->placeholder('Jelaskan kondisi aktual yang terjadi')
+                            ->rows(3),
+                    ])
+                    ->action(function (array $data) {
+                        \App\Models\BeritaAcara::create([
+                            'user_id'    => \Illuminate\Support\Facades\Auth::id(),
+                            'modul'      => 'produksi',
+                            'topik'      => 'hasil_produksi',
+                            'kategori'   => $data['kategori'],
+                            'nama_item'  => $data['nama_item'],
+                            'jumlah'     => $data['jumlah'],
+                            'satuan'     => 'pcs',
+                            'keterangan' => $data['keterangan'] ?? null,
+                        ]);
+
+                        \Filament\Notifications\Notification::make()
+                            ->title('Berita acara berhasil dicatat')
+                            ->success()
+                            ->send();
+                    })
+                    ->modalHeading('Tambah Berita Acara — Hasil Produksi')
+                    ->modalSubmitActionLabel('Simpan')
+                    ->modalCancelActionLabel('Batal'),
             ])
             ->actions([
                 ActionGroup::make([
