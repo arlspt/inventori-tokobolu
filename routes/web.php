@@ -7,6 +7,7 @@ use App\Http\Controllers\ReturController;
 Route::get('/', function () {
     return view('welcome');
 });
+Route::redirect('/', '/admin');
 // Cetak invoice per-distribusi
 Route::get('/invoice/{id}/cetak', [InvoiceController::class, 'cetak'])
     ->name('invoice.cetak')
